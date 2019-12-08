@@ -1,8 +1,8 @@
 
 *********************************
 *          LYNXDIR              *
-*         Version 1.6           *
-*   (c) Björn Spruck 2010-2012  *
+*         Version 1.7           *
+*   (c) Björn Spruck 2010-2015  *
 *********************************
 
 What it does:
@@ -69,6 +69,9 @@ ALIGN - Align next file to a block offset of zero in ROM
 EPYX - Switch to EPYXL style directory entries.
 BLL - Switch to BLL style directory entries.
 COPY - Adds a directory entry which is a copy of another one added before, without duplicating the file data.
+NONE - write an empty directory entry
+EMPTY - same as NONE
+SKIP - skip n entries in directory (= write n empty entries)
 
 NOLYX - Dont write a plain ROM image, LYX
 NOLNX - Dont write a emulator style ROM image, LNX
