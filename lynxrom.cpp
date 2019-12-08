@@ -504,8 +504,14 @@ bool lynxrom::AnalyseFile(struct FILE_PAR *file)
 	  printf("RomRip ");
 	}else{
 	  fflag = file->memory[0] | file->memory[1];
-	  if ((fflag == 0x88) ||	// Normales Programm
-		  (fflag == 0x89))	// Gepacktes Programm
+//	  if ((fflag == 0x88) ||	// Normales Programm
+//		  (fflag == 0x89))	// Gepacktes Programm
+	  if(file->memory[1]==0x80 && (file->memory[0]==0x08 || file->memory[0]==0x09))
+	  {
+	      printf("hmmm could be wrong Endian header %02X %02X\n",file->memory[0], file->memory[1]);
+	  }
+	  /// Problem: Atari vs PC / 
+	  if(file->memory[0]==0x80 && (file->memory[1]==0x08 || file->memory[1]==0x09))
 	  {
 		  // Korrigierten Offset
 		  if(skipheader){
@@ -541,6 +547,22 @@ bool lynxrom::AnalyseFile(struct FILE_PAR *file)
 			  file->data[2]=random()&0xFF;
 			  file->data[3]=random()&0xFF;
 		  }
+	  }
+	// Check if we have PCrunch File
+	  if( file->data[2]=='p' && file->data[3]=='u'){
+		  file->flag = 'P';// Data pCrunched
+		  printf("PUCrunch ");
+		  file->loadadr = file->data[7]+file->data[8]*256;
+		  printf("load to %04X ",file->loadadr );
+		  file->data[14]=file->data[12];
+		  file->data[13]=file->data[11];
+		  file->data[12]=file->data[10];
+		  file->data[11]=file->data[9];
+		  file->data[10]=file->data[6];
+		  file->pointer+=10;
+		  file->inromsize-=10;
+		  file->indirfilesize-=10;
+		  file->data+=10;
 	  }
 	}
 	// noPrg

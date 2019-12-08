@@ -1,13 +1,13 @@
 
 *********************************
 *          LYNXDIR              *
-*         Version 1.2           *
+*         Version 1.3           *
 *   (c) Björn Spruck 2010,2011  *
 *********************************
 
 What it does:
 This program builts a ROM directory for the lynx according to
-different "standards" and adds a encrypted loader to it.
+different "standards" and adds an encrypted loader to it.
 The encrypted loader will show the title picture (first file) and
 loads the second file for execution.
 No checksumming is done and no directory entries are stored within
