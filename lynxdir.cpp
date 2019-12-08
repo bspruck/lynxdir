@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define VER "1.3"
+#define VER "1.6"
 
 #define stricmp(a,b)	strcasecmp(a,b)
 #define strnicmp(a,b,c)	strncasecmp(a,b,c)
@@ -40,7 +40,7 @@ bool ParseMAK(char *fname)
 {
 	char buffer[1000];
 	FILE *fh;
-	bool align=false, mode=false, title=true;
+	bool align=false, mode=false, title=true, skip_bank=false;
 	int offset=0;
 	int fileadr=0;
 
@@ -99,6 +99,15 @@ bool ParseMAK(char *fname)
 				ROM.SetDirStart(atoi(c+9));
 			}else if(strnicmp(c+1,"DIROFFSET",9)==0){
 				offset=atoi(c+10);
+			}else if(strnicmp(c+1,"NEWMINI_F000",12)==0){
+				printf("-> Set new Minimal header (+ loader) @ $F000\n");
+				ROM.SetMiniHeader(1);
+			}else if(strnicmp(c+1,"NEWMINI_FB68",12)==0){
+				printf("-> Set new Minimal header (+ loader) @ $FB68\n");
+				ROM.SetMiniHeader(2);
+// 			}else if(strnicmp(c+1,"NEWMINI_LEX",11)==0){// not yet working
+// 				printf("-> Set new Minimal header (+ LEX loader) @ $F000\n");
+// 				ROM.SetMiniHeader(3);
 			}else if(strnicmp(c+1,"HACK512",7)==0){
 				printf("-> Set HACK512 header\n");
 				ROM.SetHackHeader(512);
@@ -108,6 +117,12 @@ bool ParseMAK(char *fname)
 			}else if(strnicmp(c+1,"HACK2048",8)==0){
 				printf("-> Set HACK2048 header\n");
 				ROM.SetHackHeader(2048);
+			}else if(strnicmp(c+1,"AUDIN",5)==0){
+				printf("-> Set AUDIN cart\n");
+				ROM.SetAudIn(true);
+			}else if(strnicmp(c+1,"BANK2",5)==0){
+				printf("-> Set BANK2 cart\n");
+				ROM.SetBank2(true);
 			}else if(strnicmp(c+1,"NOLYX",5)==0){
 				printf("-> Dont write LYX\n");
 				ROM.set_write_lyx(false);
@@ -115,8 +130,16 @@ bool ParseMAK(char *fname)
 				printf("-> Dont write LNX\n");
 				ROM.set_write_lnx(false);
 			}else if(strnicmp(c+1,"LNXROT",6)==0){
-				printf("-> Flag Rotate in LNX\n");
-				ROM.set_lnxrot(true);
+				int rotation;
+				rotation=atoi(c+7);
+				printf("-> Flag Rotate in LNX to ");
+				switch(rotation){
+				  case 0: printf("NORM\n"); break;
+				  case 1: printf("LEFT\n"); break;
+				  case 2: printf("RIGHT\n"); break;
+				  default: printf("undefined\n"); break;
+				}
+				ROM.set_lnxrot(rotation);
 			}else if(strnicmp(c+1,"LNXNAME",7)==0){
 				printf("-> Set Manufacturer in LNX %s\n",c+9);
 				ROM.set_lnxname(c+9);
@@ -134,9 +157,10 @@ bool ParseMAK(char *fname)
 				ROM.SetTitleAdr(atoi(c+9));
 			}else if(strnicmp(c+1,"PUTTITLE",8)==0){
 				printf("-> Use internal titlepic\n");
-				ROM.AddFile(0,true,align,mode,offset);// fileadr
+				ROM.AddFile(0,true,align,mode,offset,skip_bank);// fileadr
 				align=false;
 				title=false;
+				skip_bank=false;
 				offset=0;
 			}else if(strnicmp(c+1,"FILEADR",7)==0){
 				fileadr=atoi(c+8);
@@ -144,6 +168,9 @@ bool ParseMAK(char *fname)
 			}else if(strnicmp(c+1,"ALIGN",5)==0){
 				printf("-> Align next\n");
 				align=true;
+			}else if(strnicmp(c+1,"SKIP_BANK",9)==0){
+				printf("-> Skip Bank next\n");
+				skip_bank=true;
 			}else if(strnicmp(c+1,"BLL",3)==0){
 				printf("-> Set Dir Mode Bll\n");
 				mode=false;
@@ -157,9 +184,10 @@ bool ParseMAK(char *fname)
 				offset=0;
 			}
 		}else{// Filename
-			ROM.AddFile(c,title,align,mode,offset);// fileadr
+			ROM.AddFile(c,title,align,mode,offset,skip_bank);// fileadr
 			align=false;
 			title=false;
+			skip_bank=false;
 			offset=0;
 		}
 	}
@@ -170,6 +198,7 @@ bool ParseMAK(char *fname)
 char usage[]={
 	"\nUsage :\n"
 	"lynxdir [-hvsif01r] batchfile.mak\n"
+	"lynxdir mainexe.o\n"
 	"-h this help\n"
 	"-v verbose\n" 
 	"-f[01r] fill ROM with 0,1,random\n"
@@ -177,7 +206,7 @@ char usage[]={
 	"-i remove imp (overwrite with random)\n"
 	"-x dont write LNX\n"
 	"-y dont write LYX\n"
-	"all other options should be set in MAK file\n"
+	"all other options should be set in MAK file, see examples!\n"
 };
 
 bool add_lnx_header(const char *fn2,int len)
@@ -251,6 +280,7 @@ int main(int argc,char *argv[])
 	" * BLL type 1024 bytes/block, using Troyan Horse\n"
 	" * EPXY Loader 512/1024/2048 w/o checksum\n"
 	" * EPXY Loader with BLL type file system\n"
+	" * CC65/Karri MiniLoader @ $F000 and $FB68\n"
 	" * or without loader for later encryption\n"
 	" ... and a few other things\n"
 	"----------------------------------------\n");
@@ -264,7 +294,7 @@ int main(int argc,char *argv[])
 	// Handle Parameters
 
 	ROM.init();
-	ROM.init_rom(1024,256);
+	ROM.init_rom(1024,256,false,false);
 	
 	int argc_filename;
 
@@ -378,12 +408,19 @@ int main(int argc,char *argv[])
 			// HOMEBREW.O
 			printf("\n%s is homebrew.\n",argv[argc_filename]);
 			printf("\nusing \"simple\" mode!\n",argv[argc_filename]);
-			
-			ROM.SetBlockSize(512);
-			ROM.SetDirStart(410);
-			ROM.SetHackHeader(512);
-			ROM.AddFile(0,true,false,true,0);
-			ROM.AddFile(argv[argc_filename],false,false,true,0);
+
+			// Shorter and without title picture ... karris cc65 loader to $f000 or $fb68
+ 			ROM.SetBlockSize(512);
+ 			ROM.SetDirStart(203);
+ 			ROM.SetMiniHeader(1);// better use f000 to be compatible with my bootloader
+ 			ROM.AddFile(argv[argc_filename],false,false,true,0,0);
+
+			// Hacked epyxloader
+// 			ROM.SetBlockSize(512);
+// 			ROM.SetDirStart(410);
+// 			ROM.SetHackHeader(512);
+// 			ROM.AddFile(0,true,false,true,0,0);
+// 			ROM.AddFile(argv[argc_filename],false,false,true,0,0);
 			
 		}else if((header[0]|header[1])==0x89){
 			// HOMEBREW.O but Packed :-(

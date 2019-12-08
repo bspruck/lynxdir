@@ -19,8 +19,31 @@
 #include "hack_l2_1024.h"
 #include "hack_l2_2048.h"
 
+#include "micro_loader.h"
+
+// 52 bytes of first stage
+// #include "menu_lex.h"  // LEX not working ...
+// second stage...
+// 	 run $F000
+// 	 bra .go
+// dirofflo 	dc.b 0
+// diroffhi 	dc.b 0
+// blockbc		dc.b 0
+// epyxflag	dc.b 0
+// .go
+// 	lda #MENUX_FILE
+/// Offset 2: dirofflo
+/// Offset 3: diroffhi
+/// Offset 4: blockbc
+/// Offset 5: epyxflag
+/// Offset 7: load file
+
+// at least 410 + two directory entries
+#define AUDIN_OFFSET	426
+
 struct LNX_STRUCT lnxhead;
 
+bool audin_flag=false;
 
 /*************************************************************
 *** FileLength                                             ***
@@ -72,14 +95,22 @@ void lynxrom::init(void)
 	useinternal=false;
 	fillerchar=0xFF;
 	data=0;
+	
+	audin=false;
+	bank2=false;
+	blocksize=1024;
+	blockcount=256;
+	
 	nCartLen=0;
 	FILE_ANZ=0;
 	oDirectoryPointer = 0x0380;
 	oCardTroyan = 0;//0x0400;
 	titleadr=0x2400;// default
 	hackhead=0;
+	minihead=0;
 	writelyx=true;
 	writelnx=true;
+	lnxrot=0;
 
       strcpy(lnxmanu,"lynxdir (c) B.S.");
 }
@@ -89,19 +120,41 @@ void lynxrom::SetBlockSize(int s)
   if( s==512 || s==1024 || s==2048){
 	  if(s!=blocksize){
 		blocksize=s;
-		init_rom(blocksize,blockcount);
+		init_rom(blocksize,blockcount,audin,bank2);
 	  }
   }else{
 	  printf("Error: %d is no valid blocksize!\n",s);
   }
 }
 
-bool lynxrom::init_rom(int bs,int bc)
+void lynxrom::SetAudIn(bool flag)
+{
+    init_rom(blocksize,blockcount,flag,bank2);
+}
+
+void lynxrom::SetBank2(bool flag)
+{
+    init_rom(blocksize,blockcount,audin,flag);
+}
+
+bool lynxrom::init_rom(int bs,int bc,int ai,int b2)
 {
 	if( data) delete []data;
 	blocksize=bs;
 	blockcount=bc;	
+	audin=ai;
+	bank2=b2;
+	if( ai || b2){
+	  if( ai && b2){
+	    printf("AUDIN and BANK2: blockcount *4 \n");
+	    blockcount=1024;
+	  }else{
+	    printf("AUDIN or BANK2: blockcount *2 \n");
+	    blockcount=512;
+	  }
+	}
 	nMaxSize=blocksize*blockcount;
+	printf("init rom %d %d %d \n",blocksize, blockcount, nMaxSize);
 	nCartLen=0;
 	FILE_ANZ=0;
 	
@@ -114,8 +167,8 @@ bool lynxrom::init_rom(int bs,int bc)
 	}
 }
 
-bool lynxrom::AddFile(char *fname,bool bootpic,bool blockalign,bool mode,int offset)
-{
+bool lynxrom::AddFile(char *fname,bool bootpic,bool blockalign,bool mode,int offset,bool skip_bank)
+{// mode: true EPYX, false BLL
 	if(fname && *fname){
 		char *c=fname;
 		while(*c){
@@ -133,6 +186,7 @@ bool lynxrom::AddFile(char *fname,bool bootpic,bool blockalign,bool mode,int off
 	}
 	FILES[FILE_ANZ].bootpic=bootpic;
 	FILES[FILE_ANZ].blockalign=blockalign;
+	FILES[FILE_ANZ].skip_bank=skip_bank;
 	FILES[FILE_ANZ].entrymode=mode;
 	FILES[FILE_ANZ].newdiroffset=offset;
 	FILES[FILE_ANZ].memory=0;
@@ -146,7 +200,6 @@ bool lynxrom::AddFile(char *fname,bool bootpic,bool blockalign,bool mode,int off
 	return(true);
 }
 
-
 bool lynxrom::AddCopy(int nr,bool mode,int offset)
 {
   static char copyof[]="CopyOf";
@@ -158,6 +211,10 @@ bool lynxrom::AddCopy(int nr,bool mode,int offset)
 	FILES[FILE_ANZ].fname=copyof;
 	FILES[FILE_ANZ].filesize=0;
 
+	FILES[FILE_ANZ].bootpic=0;
+	FILES[FILE_ANZ].blockalign=0;
+	FILES[FILE_ANZ].skip_bank=0;
+	
 	FILES[FILE_ANZ].entrymode=mode;
 	FILES[FILE_ANZ].newdiroffset=offset;
 	FILES[FILE_ANZ].memory=0;
@@ -175,15 +232,86 @@ bool lynxrom::savelyx(char *fn)
 {
 	if(!writelyx) return(true);
 
-	FILE *fh;
-	printf("Writing to %s\n",fn);
-	fh=fopen(fn,"wb+");
-	if(fh==0) return(false);
+	  FILE *fh;
 	
-	if(filler) nCartLen=nMaxSize; 
-	if(fwrite(data,1,nCartLen,fh)!=nCartLen) printf("Error: Couldn't write %s !\n",fn);
+	printf("== blocksize %d ncardlen %d maxsize %d audin %d bank2 %d\n",blocksize,nCartLen,nMaxSize,(int)audin,(int)bank2);
+	  char *c;
+	  c=new char[strlen(fn)+20];
+	  
+	  int banksize=blocksize*256;
+	  int offset=0;
+
+	if(audin){
+	  strcpy(c,fn);
+	  strcat(c,"_aud0_bank0.lyx");
+	  printf("Writing to %s\n",c);
+	  fh=fopen(c,"wb+");
+	  if(fh==0) return(false);
+	  if(fwrite(data+offset,1,banksize,fh)!=banksize) printf("Error: Couldn't write %s !\n",fn);
+	  offset+=banksize;
+	  fclose(fh);
+
+	  if(bank2){
+	    strcpy(c,fn);
+	    strcat(c,"_aud0_bank1.lyx");
+	    printf("Writing to %s\n",c);
+	    fh=fopen(c,"wb+");
+	    if(fh==0) return(false);	  
+	    if(fwrite(data+offset,1,banksize,fh)!=banksize) printf("Error: Couldn't write %s !\n",fn);
+	    offset+=banksize;
+	    fclose(fh);
+	  }
+
+	  strcpy(c,fn);
+	  strcat(c,"_aud1_bank0.lyx");
+	  printf("Writing to %s\n",c);
+	  fh=fopen(c,"wb+");
+	  if(fh==0) return(false);	  
+	  if(fwrite(data+offset,1,banksize,fh)!=banksize) printf("Error: Couldn't write %s !\n",fn);
+	  offset+=banksize;
+	  fclose(fh);
+
+	  if(bank2){
+	    strcpy(c,fn);
+	    strcat(c,"_aud1_bank1.lyx");
+	    printf("Writing to %s\n",c);
+	    fh=fopen(c,"wb+");
+	    if(fh==0) return(false);	  
+	    if(fwrite(data+offset,1,banksize,fh)!=banksize) printf("Error: Couldn't write %s !\n",fn);
+	    offset+=banksize;
+	    fclose(fh);
+	  }	  
+	}else{
+	  if( bank2){
+	    strcpy(c,fn);
+	    strcat(c,"_bank0.lyx");
+	    printf("Writing to %s\n",c);
+	    fh=fopen(c,"wb+");
+	    if(fh==0) return(false);	  
+	    if(fwrite(data+offset,1,banksize,fh)!=banksize) printf("Error: Couldn't write %s !\n",fn);
+	    offset+=banksize;
+	    fclose(fh);
+
+	    strcpy(c,fn);
+	    strcat(c,"_bank1.lyx");
+	    printf("Writing to %s\n",c);
+	    fh=fopen(c,"wb+");
+	    if(fh==0) return(false);	  
+	    if(fwrite(data+offset,1,banksize,fh)!=banksize) printf("Error: Couldn't write %s !\n",fn);
+	    offset+=banksize;
+	    fclose(fh);	    
+	  }else{
+	    printf("Writing to %s\n",fn);
+	    fh=fopen(fn,"wb+");
+	    if(fh==0) return(false);
+	    
+	    if(filler) nCartLen=nMaxSize; 
+	    if(fwrite(data,1,nCartLen,fh)!=nCartLen) printf("Error: Couldn't write %s !\n",fn);
+	    fclose(fh);
+	  }
+	}
 	
-	fclose(fh);
+	delete c;
 	return(true);	
 }
 
@@ -203,7 +331,9 @@ bool lynxrom::savelnx(char *fn)
 	memset(ll,0,sizeof(struct LNX_STRUCT));
 	strcpy((char *)ll->magic,"LYNX");
 	ll->page_size_bank0=blocksize;
-	// ll->page_size_bank1=0;
+	if(bank2){
+	  ll->page_size_bank1=blocksize;
+	}
 	ll->version=1;
 	char *bn;
 	bn=strrchr(fn,'/');
@@ -215,10 +345,14 @@ bool lynxrom::savelnx(char *fn)
 	strncpy((char *)ll->manufname,lnxmanu,16);
 	((char *)ll->manufname)[15]=0;
 	ll->rotation=lnxrot;
+	ll->aud_bits=0;
+	if(audin) ll->aud_bits=0x01;
 	
 	if(fwrite(ll,1,sizeof(struct LNX_STRUCT),fh)!=sizeof(struct LNX_STRUCT)) printf("Error: Couldn't write LN header for  %s !\n",fn);
 	nCartLen=nMaxSize; 
-	if(fwrite(data,1,nCartLen,fh)!=nCartLen) printf("Error: Couldn't write data for %s !\n",fn);
+	
+	printf("== Blocksize %d CardLen %d MaxSize %d Audin %d Bank2 %d\n",blocksize,nCartLen,nMaxSize,(int)audin,(int)bank2);
+	if(fwrite(data,1,nCartLen,fh)!=nCartLen) printf("Error: Couldn't write bank %s !\n",fn);
 	
 	fclose(fh);
 
@@ -237,6 +371,59 @@ void lynxrom::copy_bll_header(void)
 		// remark by BS: Totally wrong, this is crctab-Adress!!!
 		// very strange that this works!!!
 	}
+}
+
+void lynxrom::copy_micro_header(void)
+{
+  // Header kopieren
+  printf("Copy internal micro loader.\n");
+  switch(minihead){
+    case 1:{// at $F000
+      printf("... @ $F000\n");
+      for (int i=0; i< 52; i++) data[i] = micro_loader_f000_stage1[i];
+      for (int i=0; i<151; i++) data[i+52] = micro_loader_f000_stage2[i];
+      // now comes the first dir entry in EPYX format! @ 203
+      //  	data[52+128+12+11+0]=FILES[0]  block nr
+    }; break;      
+    case 2:{// at $FB68
+      printf("... @ $FB68\n");
+      for (int i=0; i< 52; i++) data[i] = micro_loader_fb68_stage1[i];
+      for (int i=0; i<151; i++) data[i+52] = micro_loader_fb68_stage2[i];
+      // now comes the first dir entry in EPYX format! @ 203
+      //  	data[52+128+12+11+0]=FILES[0]  block nr
+    }; break;      
+//     case 3:{// LEX at $F000
+//       printf("... LEX @ $F000\n");
+//       for (int i=0; i< 52; i++) data[i] = micro_loader_f000_stage1[i];
+//       for (int i=0; i<206; i++) data[i+52] = menu_lex[i];
+//       data[52+2]=FILES[0].dirpointer &0xFF;//dirofflo
+//       data[52+3]=FILES[0].dirpointer >>8;//diroffhi
+//       data[52+4]=(unsigned char)(0x100-(blocksize>>8));
+//       data[52+5]=FILES[0].entrymode;// Epyxflag
+//       data[52+7]=0*8;// Startfile
+//     }; break;
+    deafult:
+      printf("... Type not supported!\n");    
+  }
+	  
+  switch(minihead){
+    case 1:
+    case 2:
+	switch(blocksize){
+	  case 512:
+	    data[52+128+12+11-7]=0xfe;// 128kb
+	    break;
+	  case 1024:
+	    data[52+128+12+11-7]=0xfc;// 256kb
+	    break;
+	  case 2048:
+	    data[52+128+12+11-7]=0xf8;// 512kb
+	    break;
+	  default:
+	    printf("This Blocksize Is Not Supported By Microloader!!!\n");
+	}
+	break;
+    }
 }
 
 bool lynxrom::process_files(void)
@@ -338,10 +525,10 @@ bool lynxrom::add_files(void)
 		{// Dann Block-Align durchf?hren
 			nCartLen += blocksize-1;
 			nCartLen &= ~(blocksize-1);
+			nBlockOffset = nCartLen % blocksize;
+			nBlockNo = nCartLen / blocksize;
 			printf("#ALIGN:\n");
 			if(verbose){
-				nBlockOffset = nCartLen % blocksize;
-				nBlockNo = nCartLen / blocksize;
 				printf("Next one will be at: Block %x, Offset %x\n", nBlockNo, nBlockOffset);
 			}
 		}
@@ -403,7 +590,7 @@ bool lynxrom::add_files(void)
 		printf("*********************************************\n");
 	}
 
-	if(FILES[0].loadadr==0){
+	if(!minihead && FILES[0].loadadr==0){
 		printf("Set Title Adress to %d ($%04X) as none was defined within title file header.\n",titleadr,titleadr);
 		FILES[0].loadadr=titleadr; // fixed adress for title pic
 	}
@@ -419,6 +606,41 @@ bool lynxrom::WriteFileToRom(struct FILE_PAR *file)
 		printf("\nROM Size exceeded!\n");
 		return(false);
 	}
+
+        int bank1offset=-1, bank2offset=-1, audinoffset=-1;
+	if( audin){
+	  if(bank2){
+	    bank1offset=1*nMaxSize/4;
+	    audinoffset=2*nMaxSize/4;
+	    bank2offset=3*nMaxSize/4;
+	  }else{
+	    audinoffset=nMaxSize/2;
+	  }
+	}else{
+	  if(bank2){
+	    bank1offset=nMaxSize/2;
+	  }else{
+	    // do nothing
+	  }
+	}
+	
+	    if(bank1offset>0 && nCartLen<=bank1offset && (file->skip_bank || nCartLen+file->inromsize>bank1offset)){
+	      printf("\nB1: Bank full (%X of %X) -> next (%X)\n",nCartLen+file->inromsize,bank1offset,bank1offset);
+	      nCartLen=bank1offset;
+	      file->inromloadoffset=nCartLen;
+	      printf("Correction:  %x, Offset %x\n", nCartLen / blocksize, nCartLen % blocksize);
+	    }else if(audinoffset>0 && nCartLen<=audinoffset && (file->skip_bank || nCartLen+file->inromsize>audinoffset)){
+	      printf("\nAU: Bank full (%X of %X) -> next (%X)\n",nCartLen+file->inromsize,audinoffset,audinoffset + blocksize);
+	      nCartLen=audinoffset + AUDIN_OFFSET;
+	      file->inromloadoffset=nCartLen;
+	      printf("Correction:  %x, Offset %x\n", nCartLen / blocksize, nCartLen % blocksize);
+	    }else if(bank2offset>0 && nCartLen<=bank2offset && (file->skip_bank || nCartLen+file->inromsize>bank2offset)){
+	      printf("\nB2: Bank full (%X of %X) -> next (%X)\n",nCartLen+file->inromsize,bank2offset,bank2offset);
+	      nCartLen=bank2offset;
+	      file->inromloadoffset=nCartLen;
+	      printf("Correction:  %x, Offset %x\n", nCartLen / blocksize, nCartLen % blocksize);
+	    }
+	
 	memcpy(data+nCartLen,file->pointer,file->inromsize);
 	return(true);
 }
@@ -437,6 +659,17 @@ bool lynxrom::WriteDirEntry(struct FILE_PAR *file)
 	bo = file->inromloadoffset % blocksize;
 	bn = file->inromloadoffset / blocksize;
 	fl = file->indirfilesize;
+	
+	if(bank2){// bank2
+	  if( bn&0x100) bo|=0x4000;
+	  if( audin){// and audin
+	    if( bn&0x200) bo|=0x8000;
+	  }
+	}else{
+	  if( audin){// only audin
+	    if( bn&0x100) bo|=0x8000;
+	  }
+	}
 	
 	pDirectoryPointer[0] = bn;
 	pDirectoryPointer[3] = file->flag;
@@ -566,7 +799,7 @@ bool lynxrom::AnalyseFile(struct FILE_PAR *file)
 	  }
 	}
 	// noPrg
-	
+
 	return(true);
 }
 
@@ -575,6 +808,7 @@ bool lynxrom::built(void)
 	if(useinternal) copy_bll_header();
 	process_files();
 	add_files();
+	if(minihead) copy_micro_header();
 	if(oCardTroyan>0){
 	  printf("Now write troyan entry\n");
 	  unsigned char troy[]={0,0,2,0,0,2,0,2};
@@ -602,6 +836,10 @@ bool lynxrom::built(void)
 		default:
 		  printf("=== Block size not supported!!!\n");
 		  break;
+	  }
+	  if(audin){
+	    memcpy(data+nMaxSize/2,data,AUDIN_OFFSET);// maybe 256 bytes is enough >> to test on hardware!
+	    printf("Duplicate Header for AUDIN 1 (%d bytes)\n", AUDIN_OFFSET);
 	  }
 	}
 }

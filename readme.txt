@@ -1,8 +1,8 @@
 
 *********************************
 *          LYNXDIR              *
-*         Version 1.3           *
-*   (c) Björn Spruck 2010,2011  *
+*         Version 1.6           *
+*   (c) Björn Spruck 2010-2012  *
 *********************************
 
 What it does:
@@ -54,10 +54,11 @@ For readability case 1) should be at the beginning of the file.
 The following parameters are supported in mak files:
 
 BLOCKSIZE - Blocksize for this ROM, one of the most important comnmands. Possible values are: 512, 1024, 2048
-HACK512, HACK1024, HACK2048 - Put the Epxy hacked loader in place, Not you do not have to use the same as specified by blocksize, but you should think about the consequences if not doind so ;-)
+HACK512, HACK1024, HACK2048 - Put the Epxy hacked loader in place; you do not have to use the same as specified by blocksize, but you should think about the consequences if not doing so ;-)
+NEWMINI_F000, NEWMINI_FB68 - Put the new mini header plus loader into place, requires DIRSTART to be 203, blocksize is variable
 INTERNAL - Put the BLL hacked loader into place, this should be followed by an "TROYAN" command.
 TROYAN - Put the Toryan horse into place, only needed for BLL compatible layouts.
-DIRSTART - where to start the directory, 410 for EPYX loader, 896 for BLL
+DIRSTART - where to start the directory, 410 for EPYX loader, 896 for BLL, 203 for NewMini
 
 TITLEADR - specify title loading adress, if not specifies within title file
 PUTTITLE - Put the internal "Insert Name" title picture into place. Only allowed as a replacement for the first file

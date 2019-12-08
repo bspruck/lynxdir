@@ -24,7 +24,8 @@ struct LNX_STRUCT
   UBYTE   cartname[32];
   UBYTE   manufname[16];
   UBYTE   rotation;
-  UBYTE   spare[5];
+  UBYTE   aud_bits;
+  UBYTE   spare[4];
 };
 
 struct FILE_PAR{
@@ -45,6 +46,7 @@ struct FILE_PAR{
 	int		dirpointer;// pointer to dir entry
 
 	bool	blockalign;
+	bool	skip_bank;
 	bool	bootpic;
 	bool	entrymode;// 1 EPYX, 0 BLL
 	int		copyof;// >=0 copy of another file
@@ -68,11 +70,15 @@ private:
 	bool useinternal;
 	int  titleadr;
 	int hackhead;
+	int minihead;
+	
+	bool audin;
+	bool bank2;
 
 	bool writelyx;
 	bool writelnx;
 
-	bool lnxrot;
+	int lnxrot;
 	char lnxmanu[65];
 	char lnxname[65];
 	
@@ -101,23 +107,27 @@ private:
 public:
 
 	void init(void);
-	bool init_rom(int bs,int bc);
+	bool init_rom(int bs,int bc=256,int ai=false,int b2=false);
 	bool built(void);
 	bool savelyx(char *fn);
 	bool savelnx(char *fn);
-	bool AddFile(char *fh,bool ins,bool align,bool mode,int offset);
+	bool AddFile(char *fh,bool ins,bool align,bool mode,int offset,bool skipbank);
 	bool AddCopy(int nr,bool mode,int offset);
 // bool lynxrom::AddFile(char *fname,bool bootpic=false,bool blockalign=false)
 
 	unsigned long FileLength(char *fn);
 
 	void copy_bll_header(void);
+	void copy_micro_header(void);
 
 	void SetBlockSize(int s);
 	inline void SetInternalLoader(void){ useinternal=true;};
 	inline void SetDirStart(int n){ oDirectoryPointer =n;};
 	inline void SetTroyan(void){ oCardTroyan = 0x0400;};
 	inline void SetHackHeader(int n){hackhead=n;};
+	inline void SetMiniHeader(int type){minihead=type;};
+	void SetAudIn(bool flag);
+	void SetBank2(bool flag);
 
 	inline void set_verbose(bool f){verbose=f;};
 	inline void set_skipheader(bool f){skipheader=f;};
@@ -129,7 +139,7 @@ public:
 	inline void SetTitleAdr(int a){titleadr=a;};
 	inline void set_write_lyx(bool f){writelyx=f;};
 	inline void set_write_lnx(bool f){writelnx=f;};
-	inline void set_lnxrot(bool f){lnxrot=f;};
+	inline void set_lnxrot(int f){lnxrot=f;};
 	inline void set_lnxname(const char *c){strncpy(lnxname,c,64);};
 	inline void set_lnxmanu(const char *c){strncpy(lnxmanu,c,64);};
 };
