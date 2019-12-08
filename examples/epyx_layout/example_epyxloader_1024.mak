@@ -6,5 +6,5 @@
 #DIRSTART 410
 #EPYX
 ;;#PUTTITLE
-insert.o
+title.o
 main.o
