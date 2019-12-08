@@ -103,6 +103,9 @@ void lynxrom::init(void)
 
   audin = false;
   bank2 = false;
+  eeprom_type= NO_EEPROM;
+  eeprom_8bit=false;
+  
   blocksize = 0;
   blockcount = 256;
 
@@ -370,6 +373,7 @@ bool lynxrom::savelnx(char* fn)
   ll->rotation = lnxrot;
   ll->aud_bits = 0;
   if (audin) ll->aud_bits = 0x01;
+  if (eeprom_type) ll->eeprom_bits = eeprom_type | (eeprom_8bit ? EEPROM_8BIT : EEPROM_16BIT);
 
   if (fwrite(ll, 1, sizeof(struct LNX_STRUCT), fh) != sizeof(struct LNX_STRUCT)) printf("Error: Couldn't write LN header for  %s !\n",
         fn);
@@ -948,20 +952,21 @@ void lynxrom::SetLoader(int t)
 
 void lynxrom::SetHackHeader(int t,int n)
 {
-    loader = t;
+    SetLoader(t);
     SetBlockSize(n);
     SetDirStart(410);
 }
 
 void lynxrom::SetInternalLoader(void)
 {
-    loader=L_BLL;
+    SetLoader(L_BLL);
     SetBlockSize(1024);
     SetDirStart(0x380);
 }
 
 void lynxrom::SetMiniHeader(int t)
 {
-    loader = t;
+    SetLoader(t);
     SetDirStart(203);
+    if(!blocksize) SetBlockSize(512);
 }

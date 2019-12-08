@@ -92,8 +92,9 @@ NOLYX - Dont write a plain ROM image, LYX
 NOLNX - Dont write a emulator style ROM image, LNX
 LNXNAME - Put this cartname in LNX header (31+1)
 LNXMANU - Put this manufacturer in LNX header (15+1)
-LNXROT - Set rotation flag
+LNXROT - Set rotation flag for emulation (0,1,2 - NONE, LEFT, RIGHT)
 
-Missing/TODO:
+Set EEPROM flags (for emulation)
 
-EEPROMxyz - set bits to inform emulator about the presence of an SPI eeprom of type xyz in mode 8/16 bit.
+EE_93C46, EE_93C56, EE_93C66, EE_93C76, EE_93C86 - set bits to inform emulator about the presence of an SPI eeprom of this type
+EE_16BIT, EE_8BIT - set the access type to 8/16 bit mode. 16 bit mode is default.

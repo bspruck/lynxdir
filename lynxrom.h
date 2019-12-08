@@ -3,6 +3,8 @@
 
 #define MAXFILE 256
 
+// this code uses HARDCODED x86 endianess. beware: there is no multi-platform support.
+
 // Bytes should be 8-bits wide
 typedef signed char SBYTE;
 typedef unsigned char UBYTE;
@@ -24,8 +26,12 @@ struct LNX_STRUCT {
   UBYTE   manufname[16];
   UBYTE   rotation;
   UBYTE   aud_bits;
-  UBYTE   spare[4];
+  UBYTE   eeprom_bits;
+  UBYTE   spare[3];
 };
+
+enum {EEPROM_16BIT=0x00, EEPROM_8BIT=0x80};
+enum {NO_EEPROM=0, EEPROM_93C46=1, EEPROM_93C56=2, EEPROM_93C66=3, EEPROM_93C76=4, EEPROM_93C86=5};
 
 struct FILE_PAR {
   char*  fname;
@@ -72,6 +78,8 @@ private:
 
   bool audin;
   bool bank2;
+  int eeprom_type;
+  bool eeprom_8bit;
 
   bool writelyx;
   bool writelnx;
@@ -142,6 +150,9 @@ public:
   inline void set_lnxrot(int f) {lnxrot = f;};
   inline void set_lnxname(const char* c) {strncpy(lnxname, c, 64);};
   inline void set_lnxmanu(const char* c) {strncpy(lnxmanu, c, 64);};
+  inline void set_eeprom_type(int e){ eeprom_type=e;};
+  inline void set_eeprom_8bit(void){ eeprom_8bit=true;};
+  inline void set_eeprom_16bit(void){ eeprom_8bit=false;};
   
   inline bool is_internal_bll(void){ return loader==L_BLL;};
   inline bool is_hackhead(void){ return loader==L_HACK512 || loader==L_HACK1024 || loader==L_HACK2048 || loader==L_HACKAUTO;};
