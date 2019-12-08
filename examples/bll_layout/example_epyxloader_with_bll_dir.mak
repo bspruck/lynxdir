@@ -3,15 +3,18 @@
 ; but using the EPYX encryption, NOT the troyan
 ; for compatibility, file 16 is the troyan, still
 ;
-#NEWMINI_F000
-;; Blocksize is variable but
+#TROYAN
+#HACK1024
 #BLOCKSIZE 1024
-;;Dir start is variable
-#DIRSTART 203
-;; EPYX /BLL as you want
+#DIRSTART 410
 #EPYX
-;; The new miniloader is using NO title picture
+title.o
 main.o
-#DIROFFSET 410
 #BLL
-#COPY 0
+#DIROFFSET 896
+;; now copy the first two dir entries
+#COPY0
+#COPY1
+; data 1
+; data 2
+; etc
