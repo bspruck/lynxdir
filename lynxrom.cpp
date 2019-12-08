@@ -40,6 +40,7 @@
 
 // at least 410 + two directory entries
 #define AUDIN_OFFSET_HACK  (410+2*8)
+// at least 203 + one directory entry
 #define AUDIN_OFFSET_MICRO  (203+8)
 
 // geht nur fuer MICRO
@@ -103,6 +104,7 @@ void lynxrom::init(void)
 
   audin = false;
   bank2 = false;
+  contcont = false;
   eeprom_type= NO_EEPROM;
   eeprom_8bit=false;
   
@@ -144,6 +146,11 @@ void lynxrom::SetBank2(bool flag)
   init_rom(blocksize, blockcount, audin, flag);
 }
 
+void lynxrom::SetContinueBank(bool flag)
+{
+  contcont=flag;
+}
+
 void lynxrom::init_rom(int bs, int bc, int ai, int b2)
 {
   if (data) delete []data;
@@ -180,9 +187,8 @@ void lynxrom::init_rom(int bs, int bc, int ai, int b2)
 
 bool lynxrom::AddFile(char* fname, bool bootpic, bool blockalign, bool mode, int offset, bool skip_bank, int addoff)
 {
-    if(FILE_ANZ>=256){
-        printf("Too many files!\n");
-        return false;
+    if(FILE_ANZ==256){
+        printf("WARNING: More than 256 files!\n");
     }
   // mode: true EPYX, false BLL
   if (fname && *fname) {
@@ -660,21 +666,27 @@ bool lynxrom::WriteFileToRom(struct FILE_PAR* file)
     }
   }
 
-  if (bank1offset > 0 && nCartLen <= bank1offset && (file->skip_bank || nCartLen + file->inromsize > bank1offset)) {
-    printf("\nB1: Bank full (%X of %X) -> next (%X)\n", nCartLen + file->inromsize, bank1offset, bank1offset);
-    nCartLen = bank1offset;
-    file->inromloadoffset = nCartLen;
-    printf("Correction:  %x, Offset %x\n", nCartLen / blocksize, nCartLen % blocksize);
-  } else if (audinoffset > 0 && nCartLen <= audinoffset && (file->skip_bank || nCartLen + file->inromsize > audinoffset)) {
-    printf("\nAU: Bank full (%X of %X) -> next (%X)\n", nCartLen + file->inromsize, audinoffset, audinoffset + blocksize);
-    nCartLen = audinoffset + AUDIN_OFFSET;
-    file->inromloadoffset = nCartLen;
-    printf("Correction:  %x, Offset %x\n", nCartLen / blocksize, nCartLen % blocksize);
-  } else if (bank2offset > 0 && nCartLen <= bank2offset && (file->skip_bank || nCartLen + file->inromsize > bank2offset)) {
-    printf("\nB2: Bank full (%X of %X) -> next (%X)\n", nCartLen + file->inromsize, bank2offset, bank2offset);
-    nCartLen = bank2offset;
-    file->inromloadoffset = nCartLen;
-    printf("Correction:  %x, Offset %x\n", nCartLen / blocksize, nCartLen % blocksize);
+  if(contcont){
+      if (bank1offset > 0 && nCartLen <= bank1offset && (file->skip_bank || nCartLen + file->inromsize > bank1offset)) {
+        printf("\nBank full, wrap ($%X to $%X of $%X)\nNO Correction -- does not work for AUDIN!\n", nCartLen, nCartLen + file->inromsize, bank1offset);
+      }
+  }else{
+    if (bank1offset > 0 && nCartLen <= bank1offset && (file->skip_bank || nCartLen + file->inromsize > bank1offset)) {
+        printf("\nB1: Bank full ($%X of $%X) -> next ($%X)\n", nCartLen + file->inromsize, bank1offset, bank1offset);
+        nCartLen = bank1offset;
+        file->inromloadoffset = nCartLen;
+        printf("Correction:  $%x, Offset %x\n", nCartLen / blocksize, nCartLen % blocksize);
+    } else if (audinoffset > 0 && nCartLen <= audinoffset && (file->skip_bank || nCartLen + file->inromsize > audinoffset)) {
+        printf("\nAU: Bank full ($%X of $%X) -> next ($%X)\n", nCartLen + file->inromsize, audinoffset, audinoffset + blocksize);
+        nCartLen = audinoffset + AUDIN_OFFSET;
+        file->inromloadoffset = nCartLen;
+        printf("Correction:  $%x, Offset $%x\n", nCartLen / blocksize, nCartLen % blocksize);
+    } else if (bank2offset > 0 && nCartLen <= bank2offset && (file->skip_bank || nCartLen + file->inromsize > bank2offset)) {
+        printf("\nB2: Bank full ($%X of $%X) -> next ($%X)\n", nCartLen + file->inromsize, bank2offset, bank2offset);
+        nCartLen = bank2offset;
+        file->inromloadoffset = nCartLen;
+        printf("Correction:  $%x Blocks, Offset $%x Bytes\n", nCartLen / blocksize, nCartLen % blocksize);
+    }
   }
 
   memcpy(data + nCartLen, file->pointer, file->inromsize);

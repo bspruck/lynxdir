@@ -1,7 +1,7 @@
 
 #ifndef __LYNXROM_H__
 
-#define MAXFILE 256
+#define FILE_LIMIT 256
 
 // this code uses HARDCODED x86 endianess. beware: there is no multi-platform support.
 
@@ -78,6 +78,7 @@ private:
 
   bool audin;
   bool bank2;
+  bool contcont;
   int eeprom_type;
   bool eeprom_8bit;
 
@@ -89,7 +90,7 @@ private:
   char lnxname[65];
 
   int FILE_ANZ;
-  struct FILE_PAR FILES[MAXFILE];
+  struct FILE_PAR FILES[FILE_LIMIT];
   int startdiradr;
 
   unsigned char* data;
@@ -136,6 +137,7 @@ public:
   void SetMiniHeader(int type);
   void SetAudIn(bool flag);
   void SetBank2(bool flag);
+  void SetContinueBank(bool flag);
 
   inline void set_verbose(bool f) {verbose = f;};
   inline void set_skipheader(bool f) {skipheader = f;};

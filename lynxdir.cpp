@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define VER "1.9.1"
+#define VER "1.9.3"
 
 #define stricmp(a,b)  strcasecmp(a,b)
 #define strnicmp(a,b,c) strncasecmp(a,b,c)
@@ -43,7 +43,7 @@ bool ParseMAK(char* fname)
 {
   char buffer[1000];
   FILE* fh;
-  bool align = false, mode = MODE_BLL, title = true, skip_bank = false;
+  bool align = false, mode = MODE_BLL, title = true, skip_bank = false, cont_bank=false;
   int offset = 0;
   int fileadr = 0;
   int addfileoffset = 0;
@@ -142,6 +142,9 @@ bool ParseMAK(char* fname)
       } else if (strnicmp(c + 1, "BANK2", 5) == 0) {
         printf("-> Set BANK2 cart\n");
         ROM.SetBank2(true);
+      } else if (strnicmp(c + 1, "CONT", 4) == 0) {
+        printf("-> Set Continous Bank\n");
+        ROM.SetContinueBank(true);
       } else if (strnicmp(c + 1, "NOLYX", 5) == 0) {
         printf("-> Dont write LYX\n");
         ROM.set_write_lyx(false);
