@@ -69,6 +69,13 @@ private:
 	int  titleadr;
 	int hackhead;
 
+	bool writelyx;
+	bool writelnx;
+
+	bool lnxrot;
+	char lnxmanu[65];
+	char lnxname[65];
+	
 	int FILE_ANZ;
 	struct FILE_PAR FILES[MAXFILE];
 	int startdiradr;
@@ -80,7 +87,6 @@ private:
 	int oEndDir;// End Dir = Data Start
 	int nCartLen;
 	
-	unsigned long FileLength(char *fn);
 	unsigned long LoadFile(struct FILE_PAR *file);
 	bool AnalyseFile(struct FILE_PAR *file);
 	bool WriteFileToRom(struct FILE_PAR *file);
@@ -98,9 +104,12 @@ public:
 	bool init_rom(int bs,int bc);
 	bool built(void);
 	bool savelyx(char *fn);
+	bool savelnx(char *fn);
 	bool AddFile(char *fh,bool ins,bool align,bool mode,int offset);
 	bool AddCopy(int nr,bool mode,int offset);
 // bool lynxrom::AddFile(char *fname,bool bootpic=false,bool blockalign=false)
+
+	unsigned long FileLength(char *fn);
 
 	void copy_bll_header(void);
 
@@ -118,7 +127,11 @@ public:
 	inline void set_filler_zero(void){fillrand=false; fillerchar=0x00;};
 	inline void set_filler_one(void){fillrand=false; fillerchar=0xFF;};
 	inline void SetTitleAdr(int a){titleadr=a;};
-	
+	inline void set_write_lyx(bool f){writelyx=f;};
+	inline void set_write_lnx(bool f){writelnx=f;};
+	inline void set_lnxrot(bool f){lnxrot=f;};
+	inline void set_lnxname(const char *c){strncpy(lnxname,c,64);};
+	inline void set_lnxmanu(const char *c){strncpy(lnxmanu,c,64);};
 };
 
 #endif

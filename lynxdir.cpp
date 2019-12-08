@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define VER "1.0"
+#define VER "1.2"
 
 #define stricmp(a,b)	strcasecmp(a,b)
 #define strnicmp(a,b,c)	strncasecmp(a,b,c)
@@ -43,6 +43,18 @@ bool ParseMAK(char *fname)
 	bool align=false, mode=false, title=true;
 	int offset=0;
 	int fileadr=0;
+
+	{
+	  char *c, nn[65];
+	  c=strrchr(fname,'/');
+	  if(c==0) c=fname;
+	  strncpy(nn,c,64);
+	  nn[64]=0;
+	  c=strrchr(nn,'.');
+	  if(c) *c=0;
+	  ROM.set_lnxname(nn);
+	}
+
 	
 	fh=fopen(fname,"rt");
 	if(fh==0) return(false);
@@ -96,6 +108,21 @@ bool ParseMAK(char *fname)
 			}else if(strnicmp(c+1,"HACK2048",8)==0){
 				printf("-> Set HACK2048 header\n");
 				ROM.SetHackHeader(2048);
+			}else if(strnicmp(c+1,"NOLYX",5)==0){
+				printf("-> Dont write LYX\n");
+				ROM.set_write_lyx(false);
+			}else if(strnicmp(c+1,"NOLNX",5)==0){
+				printf("-> Dont write LNX\n");
+				ROM.set_write_lnx(false);
+			}else if(strnicmp(c+1,"LNXROT",6)==0){
+				printf("-> Flag Rotate in LNX\n");
+				ROM.set_lnxrot(true);
+			}else if(strnicmp(c+1,"LNXNAME",7)==0){
+				printf("-> Set Manufacturer in LNX %s\n",c+9);
+				ROM.set_lnxname(c+9);
+			}else if(strnicmp(c+1,"LNXMANU",7)==0){
+				printf("-> Set Manufacturer in LNX %s\n",c+9);
+				ROM.set_lnxmanu(c+9);
 			}else if(strnicmp(c+1,"TROYAN",6)==0){
 				printf("-> Set troyan entry (FILE 16)\n");
 				ROM.SetTroyan();
@@ -113,7 +140,7 @@ bool ParseMAK(char *fname)
 				offset=0;
 			}else if(strnicmp(c+1,"FILEADR",7)==0){
 				fileadr=atoi(c+8);
-				printf("-> Set Default Load Adr for data files\n");
+				printf("(not fully supported option!!!) -> Set Default Load Adr for data files to %d\n",fileadr);
 			}else if(strnicmp(c+1,"ALIGN",5)==0){
 				printf("-> Align next\n");
 				align=true;
@@ -148,8 +175,67 @@ char usage[]={
 	"-f[01r] fill ROM with 0,1,random\n"
 	"-s dont skip exec header (adds extra 10 bytes per exec)\n"
 	"-i remove imp (overwrite with random)\n"
+	"-x dont write LNX\n"
+	"-y dont write LYX\n"
 	"all other options should be set in MAK file\n"
 };
+
+bool add_lnx_header(const char *fn2,int len)
+{
+	struct LNX_STRUCT *ll;
+	
+	char *m=new char[len];
+
+	FILE *fh;
+	fh=fopen(fn2,"rb");
+	if(!fh){
+		printf("\nCannot read %s.\n",fn2);
+		exit(1);
+	}
+	fread(m,1,len,fh);
+	fclose(fh);
+
+	char *fn;
+	fn=new char[strlen(fn2)+5];
+	strcpy(fn,fn2);
+
+	char *bn;
+	bn=strrchr(fn,'.');
+	if(bn) strcpy(bn,".lnx"); else strcat(bn,".lnx"); 
+	
+	printf("Writing to %s\n",fn);
+	fh=fopen(fn,"wb+");
+	if(fh==0) return(false);
+	
+	ll=new struct LNX_STRUCT;
+	
+	memset(ll,0,sizeof(struct LNX_STRUCT));
+	strcpy((char *)ll->magic,"LYNX");
+	
+	ll->page_size_bank0=len>>8;
+	printf("using Blocksize of %d bytes\n",ll->page_size_bank0);
+	// ll->page_size_bank1=0;
+
+	ll->version=1;
+	bn=strrchr(fn,'/');
+	if(bn==0) bn=fn;
+	bn=strrchr(fn,'\\');
+	if(bn==0) bn=fn;
+	strncpy((char *)ll->cartname,bn,32);
+	((char *)ll->cartname)[31]=0;
+	strncpy((char *)ll->manufname,"lynxdir (c) B.S.",16);
+	((char *)ll->manufname)[15]=0;
+	// ll->rotation=0;
+	
+	if(fwrite(ll,1,sizeof(struct LNX_STRUCT),fh)!=sizeof(struct LNX_STRUCT)) printf("Error: Couldn't write LNX header for  %s !\n",fn);
+	if(fwrite(m,1,len,fh)!=len) printf("Error: Couldn't write data for %s !\n",fn);
+	
+	fclose(fh);
+
+	delete []m;
+	delete ll;
+	return(true);
+}
 
 /*************************************************************
 *** Main                                                   ***
@@ -159,13 +245,14 @@ int main(int argc,char *argv[])
 	printf("----------------------------------------\n"
 	"LynxDir Generator Version "VER"\n"
 	" a replacement for the lynxer \n"
-	"(c) 2010 Bjoern Spruck\n"
+	"(c) 2010,2011 Bjoern Spruck\n"
 	" based on the lynxer by Bastian Schick\n"
 	" It can create ROMs with \n"
 	" * BLL type 1024 bytes/block, using Troyan Horse\n"
 	" * EPXY Loader 512/1024/2048 w/o checksum\n"
 	" * EPXY Loader with BLL type file system\n"
-	" * without loader for later encryption\n"
+	" * or without loader for later encryption\n"
+	" ... and a few other things\n"
 	"----------------------------------------\n");
 	
 	if (argc == 1 )
@@ -228,6 +315,16 @@ int main(int argc,char *argv[])
 					printf("Remove IMP!\n");
 					break;
 				}
+				case 'x':{
+					ROM.set_write_lnx(false);
+					printf("Dont write LNX!\n");
+					break;
+				}
+				case 'y':{
+					ROM.set_write_lyx(false);
+					printf("Dont write LYX!\n");
+					break;
+				}
 				default:{
 					printf("\nwrong parameter %s\n",argv[ii]);
 					exit(1);
@@ -243,29 +340,55 @@ int main(int argc,char *argv[])
 		exit(1);
 	}
 	
-	// Check if File is homebrew.o or MAK
+	// Check if File is homebrew.o, rom image or MAK
 	
 	{
+		unsigned int len;
+		len=ROM.FileLength(argv[argc_filename]);
+
 		FILE *fh;
 		fh=fopen(argv[argc_filename],"rb");
 		if(!fh){
 			printf("\nCannot read %s.\n",argv[argc_filename]);
 			exit(1);
 		}
-		
 		ExtractName(argv[argc_filename]);
 		unsigned char header[4];
 		fread(header,1,4,fh);
 		fclose(fh);
-		if((header[0]|header[1])==0x88){
+		if((len==128*1024 || len==256*1024 || len==512*1024)){
+			printf("\n%s is a ROM image. The only thing I could do with that is remove the checksumming and add a LNX header...\n",argv[argc_filename]);		  
+			printf("BUT!!! removing checksumming is not working automatically for all ROMS, therefore, only a LNX header will be added!\n"\
+			"You might consider using make_lnx for this task next time!\n");
+			add_lnx_header(argv[argc_filename],len);
+			exit(0);
+		}else if( strcasestr(argv[argc_filename],".lyx")){
+			printf("\n%s is a ROM image. The only thing I could do with that is remove the checksumming and add a LNX header...\n",argv[argc_filename]);		  
+			printf("BUT!!! removing checksumming is not working automatically for all ROMS\n" \
+			      "BUT!!! the lyx file has not a vaild size and not info on teh blocksize, therefore nothing can be done!\n"\
+			      "You might consider using make_lnx for this task, but you have to know the blocksize!\n"\
+			      "=> I will quit here!\n");
+			exit(100);
+		}else if( (len==128*1024+sizeof(struct LNX_STRUCT) || len==256*1024+sizeof(struct LNX_STRUCT) || len==512*1024+sizeof(struct LNX_STRUCT) ) ||
+		    (header[0]=='L' && header[1]=='Y' && header[2]=='N' && header[3]=='X' ) ||  strcasestr(argv[argc_filename],".lyx")){
+			printf("\n%s is a LNX image. The only thing I could do with that is removing the checksumming...\n",argv[argc_filename]);
+			printf("BUT!!! this might not work for every ROM, therefore...\n=> I will quit here!\n");
+			exit(100);
+		}else if((header[0]|header[1])==0x88){
 			// HOMEBREW.O
 			printf("\n%s is homebrew.\n",argv[argc_filename]);
-			printf("\n\"simple\" mode not supported!\n",argv[argc_filename]);
-			exit(100);
+			printf("\nusing \"simple\" mode!\n",argv[argc_filename]);
+			
+			ROM.SetBlockSize(512);
+			ROM.SetDirStart(410);
+			ROM.SetHackHeader(512);
+			ROM.AddFile(0,true,false,true,0);
+			ROM.AddFile(argv[argc_filename],false,false,true,0);
+			
 		}else if((header[0]|header[1])==0x89){
 			// HOMEBREW.O but Packed :-(
 			printf("\n%s is a turbopacked file, not supported for \"simple\" mode.\n",argv[argc_filename]);
-			exit(100);
+			exit(100);		  
 		}else{
 			// Seems to be MAK
 			printf("\nRunning in script mode. (%s)\n",argv[argc_filename]);
@@ -279,9 +402,16 @@ int main(int argc,char *argv[])
 
 	printf("\nBuilding ROM...\n");
 	ROM.built();
-	strcat(ROMname,".lyx");
-	printf("Writing to %s\n",ROMname);
-	ROM.savelyx(ROMname);
+	
+	char *n;
+	n=new char[strlen(ROMname)+5];
+	strcpy(n,ROMname);
+	strcat(n,".lyx");
+	ROM.savelyx(n);
+	strcpy(n,ROMname);
+	strcat(n,".lnx");
+	ROM.savelnx(n);
+	delete []n;
 	return(0);
 }
 

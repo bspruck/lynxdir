@@ -1,8 +1,8 @@
 
 *********************************
 *          LYNXDIR              *
-*         Version 1.0           *
-*     (c) Björn Spruck 2010     *
+*         Version 1.2           *
+*   (c) Björn Spruck 2010,2011  *
 *********************************
 
 What it does:
@@ -17,10 +17,10 @@ Loaders for 512/1024/2048 bytes per block are supported. Means 128k, 2565k and 5
 The user can, if needed, lateron do a real encryption on the ROM image
 with an external program.
 
-Calling the program without arguments will show a list of possible parameters. MOst of them are not
+Calling the program without arguments will show a list of possible parameters. Most of them are not
 too useful and only for special cases (ROM encryption, compatibility, etc).
 The behaviour of this program mainly steered with a config file "*.mak". In this file the content
-of the ROM is listed, measn, the filenames of the files which should go there in their
+of the ROM is listed, means, the filenames of the files which should go there in their
 respective order. A lot of parameters can be set in the mak file, most of them you will
 need only in very rare cases. Look at the examples.
 
@@ -29,7 +29,9 @@ and the "main" executeable. If no title picture is given, the programs internal 
 If you want to have a no picture (=black screen), put in a file with 40 zero bytes.
 
 Compatibility with the old lynxer:
-Well, some parameters chnaged their meaning and a "simple mode" is not implemented anymore.
+Well, some parameters changed their meaning.
+The "simple mode" is creating now an EPYX style 128kb ROM (was BLL 256kb in lynxer).
+A .lyx and .lnx file is created.
 
 
 -----------------------
@@ -57,11 +59,18 @@ INTERNAL - Put the BLL hacked loader into place, this should be followed by an "
 TROYAN - Put the Toryan horse into place, only needed for BLL compatible layouts.
 DIRSTART - where to start the directory, 410 for EPYX loader, 896 for BLL
 
-TITLEADR - sepcify title loading adress, if not specifies within title file
+TITLEADR - specify title loading adress, if not specifies within title file
 PUTTITLE - Put the internal "Insert Name" title picture into place. Only allowed as a replacement for the first file
 
 DIROFFSET - Moves directory pointer to a different (higher) offset. Needed for BLL/EPYX mixed loader
 FILEADR - Sets the default loading adress for files (default 0000) if not defined within file header.
 ALIGN - Align next file to a block offset of zero in ROM
-EPYX, BLL - switch between EPYX and BLL style directory entries.
+EPYX - Switch to EPYXL style directory entries.
+BLL - Switch to BLL style directory entries.
 COPY - Adds a directory entry which is a copy of another one added before, without duplicating the file data.
+
+NOLYX - Dont write a plain ROM image, LYX
+NOLNX - Dont write a emulator style ROM image, LNX
+LNXNAME - Put this cartname in LNX header (31+1)
+LNXMANU - Put this manufacturer in LNX header (15+1)
+LNXROT - Set rotation flag

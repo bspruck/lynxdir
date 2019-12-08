@@ -78,11 +78,15 @@ void lynxrom::init(void)
 	oCardTroyan = 0;//0x0400;
 	titleadr=0x2400;// default
 	hackhead=0;
+	writelyx=true;
+	writelnx=true;
+
+      strcpy(lnxmanu,"lynxdir (c) B.S.");
 }
 
 void lynxrom::SetBlockSize(int s)
-{
-  if(s==256 || s==512 || s==1024 || s==2048){
+{// s==256 ||
+  if( s==512 || s==1024 || s==2048){
 	  if(s!=blocksize){
 		blocksize=s;
 		init_rom(blocksize,blockcount);
@@ -169,7 +173,10 @@ bool lynxrom::AddCopy(int nr,bool mode,int offset)
 
 bool lynxrom::savelyx(char *fn)
 {
+	if(!writelyx) return(true);
+
 	FILE *fh;
+	printf("Writing to %s\n",fn);
 	fh=fopen(fn,"wb+");
 	if(fh==0) return(false);
 	
@@ -177,6 +184,46 @@ bool lynxrom::savelyx(char *fn)
 	if(fwrite(data,1,nCartLen,fh)!=nCartLen) printf("Error: Couldn't write %s !\n",fn);
 	
 	fclose(fh);
+	return(true);	
+}
+
+bool lynxrom::savelnx(char *fn)
+{
+	if(!writelnx) return(true);
+	
+	FILE *fh;
+	struct LNX_STRUCT *ll;
+	
+	printf("Writing to %s\n",fn);
+	fh=fopen(fn,"wb+");
+	if(fh==0) return(false);
+	
+	ll=new struct LNX_STRUCT;
+	
+	memset(ll,0,sizeof(struct LNX_STRUCT));
+	strcpy((char *)ll->magic,"LYNX");
+	ll->page_size_bank0=blocksize;
+	// ll->page_size_bank1=0;
+	ll->version=1;
+	char *bn;
+	bn=strrchr(fn,'/');
+	if(bn==0) bn=fn;
+	bn=strrchr(fn,'\\');
+	if(bn==0) bn=fn;
+	strncpy((char *)ll->cartname,lnxname,32);
+	((char *)ll->cartname)[31]=0;
+	strncpy((char *)ll->manufname,lnxmanu,16);
+	((char *)ll->manufname)[15]=0;
+	ll->rotation=lnxrot;
+	
+	if(fwrite(ll,1,sizeof(struct LNX_STRUCT),fh)!=sizeof(struct LNX_STRUCT)) printf("Error: Couldn't write LN header for  %s !\n",fn);
+	nCartLen=nMaxSize; 
+	if(fwrite(data,1,nCartLen,fh)!=nCartLen) printf("Error: Couldn't write data for %s !\n",fn);
+	
+	fclose(fh);
+
+	delete ll;
+	return(true);
 }
 
 void lynxrom::copy_bll_header(void)
@@ -446,45 +493,55 @@ bool lynxrom::AnalyseFile(struct FILE_PAR *file)
 	file->data=file->memory;
 	file->inromsize=file->filesize;
 	file->indirfilesize=file->inromsize;
-	
-	fflag = file->memory[0] | file->memory[1];
-	if ((fflag == 0x88) ||	// Normales Programm
-		(fflag == 0x89))	// Gepacktes Programm
-	{
-		// Korrigierten Offset
-		if(skipheader){
-			file->pointer+=HEADERLEN;
-			file->inromsize-=HEADERLEN;
-		}else{
-		  file->inromloadoffset+=HEADERLEN;
-		}
-		file->indirfilesize-=HEADERLEN;
-		file->data+=HEADERLEN;
 
-		
-		file->flag = fflag;
-		file->loadadr = file->memory[2]*256 + file->memory[3];// Startadresse
-		
-		if (fflag == 0x89)	// Gepacktes Prg.
-		{
-			file->indirfilesize = file->memory[4]*256 + file->memory[5];
-			// TP packed program ... length in dir is unpacked(!) length not packed length
-			printf("TP Exec ");
-		}else{
-			printf("Exec ");
-		}
-	}
+	if( strncmp((const char *)file->memory,"ROMRIP",6)==0){
+	  file->pointer+=16;
+	  file->inromsize-=16;
+	  file->indirfilesize-=16;
+	  file->data+=16;
+	  file->flag = ((unsigned char *)file->memory)[8+2];
+	  file->loadadr = ((unsigned short *)file->memory)[8/2];
+	  printf("RomRip ");
+	}else{
+	  fflag = file->memory[0] | file->memory[1];
+	  if ((fflag == 0x88) ||	// Normales Programm
+		  (fflag == 0x89))	// Gepacktes Programm
+	  {
+		  // Korrigierten Offset
+		  if(skipheader){
+			  file->pointer+=HEADERLEN;
+			  file->inromsize-=HEADERLEN;
+		  }else{
+			file->inromloadoffset+=HEADERLEN;
+		  }
+		  file->indirfilesize-=HEADERLEN;
+		  file->data+=HEADERLEN;
+
+
+		  file->flag = fflag;
+		  file->loadadr = file->memory[2]*256 + file->memory[3];// Startadresse
+
+		  if (fflag == 0x89)	// Gepacktes Prg.
+		  {
+			  file->indirfilesize = file->memory[4]*256 + file->memory[5];
+			  // TP packed program ... length in dir is unpacked(!) length not packed length
+			  printf("TP Exec ");
+		  }else{
+			  printf("Exec ");
+		  }
+	  }
 	
 	// Check if we have IMP! File
-	if( file->data[0]=='I' && file->data[1]=='M' && file->data[2]=='P' && file->data[3]=='!'){
-		file->flag = 'I';// Data imploded
-		printf("Imploded ");
-		if(delimp){// ... and remove Magic
-			file->data[0]=random()&0xFF;
-			file->data[1]=random()&0xFF;
-			file->data[2]=random()&0xFF;
-			file->data[3]=random()&0xFF;
-		}
+	  if( file->data[0]=='I' && file->data[1]=='M' && file->data[2]=='P' && file->data[3]=='!'){
+		  file->flag = 'I';// Data imploded
+		  printf("Imploded ");
+		  if(delimp){// ... and remove Magic
+			  file->data[0]=random()&0xFF;
+			  file->data[1]=random()&0xFF;
+			  file->data[2]=random()&0xFF;
+			  file->data[3]=random()&0xFF;
+		  }
+	  }
 	}
 	// noPrg
 	
