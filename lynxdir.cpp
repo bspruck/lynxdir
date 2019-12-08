@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define VER "1.9.0"
+#define VER "1.9.1"
 
 #define stricmp(a,b)  strcasecmp(a,b)
 #define strnicmp(a,b,c) strncasecmp(a,b,c)
@@ -210,6 +210,20 @@ bool ParseMAK(char* fname)
         align = false;
         title = false;
         offset = 0;
+      } else if (strnicmp(c + 1, "EE_8BIT", 7) == 0) {
+        ROM.set_eeprom_8bit();
+      } else if (strnicmp(c + 1, "EE_16BIT", 8) == 0) {
+        ROM.set_eeprom_16bit();
+      } else if (strnicmp(c + 1, "EE_93C46", 8) == 0) {
+        ROM.set_eeprom_type(EEPROM_93C46);
+      } else if (strnicmp(c + 1, "EE_93C56", 8) == 0) {
+        ROM.set_eeprom_type(EEPROM_93C56);
+      } else if (strnicmp(c + 1, "EE_93C66", 8) == 0) {
+        ROM.set_eeprom_type(EEPROM_93C66);
+      } else if (strnicmp(c + 1, "EE_93C76", 8) == 0) {
+        ROM.set_eeprom_type(EEPROM_93C76);
+      } else if (strnicmp(c + 1, "EE_93C86", 8) == 0) {
+        ROM.set_eeprom_type(EEPROM_93C86);          
       }else{
         printf("== ERROR ===\nUnknown line \"%s\"\n",c);
         exit(1000);
@@ -309,9 +323,9 @@ bool add_lnx_header(const char* fn2, int len)
 int main(int argc, char* argv[])
 {
   printf("----------------------------------------\n"
-         "LynxDir Generator Version "VER"\n"
+         "LynxDir Generator Version " VER "\n"
          " a replacement for the lynxer \n"
-         "(c) 2010,2011 Bjoern Spruck\n"
+         "(c) 2010-2017 Bjoern Spruck\n"
          " based on the lynxer by Bastian Schick\n"
          " It can create ROMs with \n"
          " * BLL type 1024 bytes/block, using Troyan Horse\n"
