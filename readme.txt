@@ -1,8 +1,8 @@
 
 *********************************
 *          LYNXDIR              *
-*         Version 1.7           *
-*   (c) Björn Spruck 2010-2015  *
+*         Version 1.9           *
+*   (c) Björn Spruck 2010-2017  *
 *********************************
 
 What it does:
@@ -53,28 +53,47 @@ For readability case 1) should be at the beginning of the file.
 
 The following parameters are supported in mak files:
 
-BLOCKSIZE - Blocksize for this ROM, one of the most important comnmands. Possible values are: 512, 1024, 2048
-HACK512, HACK1024, HACK2048 - Put the Epxy hacked loader in place; you do not have to use the same as specified by blocksize, but you should think about the consequences if not doing so ;-)
-NEWMINI_F000, NEWMINI_FB68 - Put the new mini header plus loader into place, requires DIRSTART to be 203, blocksize is variable
-INTERNAL - Put the BLL hacked loader into place, this should be followed by an "TROYAN" command.
+HACK512, HACK1024, HACK2048, HACKAUTO - Put the Epxy hacked loader in place. Adjusts the BLOCKSIZE accordingly. Sets DIRSTART to 203. Mode to EPXY. AUTO will set loader depending on selected blocksize.
+NEWMINI_F000, NEWMINI_FB68 - Put the new mini header plus loader into place, set DIRSTART to be 203, blocksize is variable, default 512. Mode to EPXY.
+INTERNAL - Put the BLL hacked loader into place, this should be followed by an "TROYAN" command. Sets the blocksize to 1024 and the DIRSTART to 896. Mode to BLL.
+NOLOADER - dont put any loader code, just zeros. need to run encryption script afterwards. Makes only sense for EPYX layouts.
+
+If there is no loader defined (or NOLOADER given) the program will exit.
+
 TROYAN - Put the Toryan horse into place, only needed for BLL compatible layouts.
+
+BLOCKSIZE and DIRSTART are now set by commands above as well as the mode for the first dir entry.
+BLOCKSIZE - Blocksize for this ROM, one of the most important comnmands. Possible values are: 512 (default), 1024, 2048
 DIRSTART - where to start the directory, 410 for EPYX loader, 896 for BLL, 203 for NewMini
+AUDIN - doubles the number of banks by using AUDIN line for switching (the user code is responsible for supporting this)
+BANK2 - doubles the number of banks by using second read strobe (the user code is responsible for supporting this)
 
-TITLEADR - specify title loading adress, if not specifies within title file
-PUTTITLE - Put the internal "Insert Name" title picture into place. Only allowed as a replacement for the first file
+The usage of AUDIN and BANK2 requires additional bits in the lnx header to be set. Only the newest versions of handy emulator code support it (version 0.98).
+The order in which the banks are written to the file is discussed by length in atariage -> lynx -> development forum.
+The users code is responsible for switching banks and reading files correctly. There is no official support.
 
-DIROFFSET - Moves directory pointer to a different (higher) offset. Needed for BLL/EPYX mixed loader
+TITLEADR - specify title loading adress, if not specifies within title file. If a .o file is used, dont give it. Remark: This address MUST fit the one which was used when the title file was created.
+PUTTITLE - Put the internal "Insert Name" title picture into place. Only allowed as a replacement for the first file (but NOT for mini loaders!)
+
+DIROFFSET - Moves directory pointer to a different (higher) offset. Needed for BLL/EPYX/MINI mixed loader
 FILEADR - Sets the default loading adress for files (default 0000) if not defined within file header.
 ALIGN - Align next file to a block offset of zero in ROM
-EPYX - Switch to EPYXL style directory entries.
-BLL - Switch to BLL style directory entries.
-COPY - Adds a directory entry which is a copy of another one added before, without duplicating the file data.
+EPYX - Switch to EPYX style directory entries.
+BLL - Switch to BLL style directory entries (XORing some entries).
+COPY - Adds a directory entry which is a copy of another one added before, without duplicating the file data. Omitting the number makes a copy of the previous entry. Note: if the mode was switched in between, the entry will be adapted accordingly.
 NONE - write an empty directory entry
 EMPTY - same as NONE
 SKIP - skip n entries in directory (= write n empty entries)
+SKIP_BANK - skips to the next bank (if available).
+
+And a few handy things.
 
 NOLYX - Dont write a plain ROM image, LYX
 NOLNX - Dont write a emulator style ROM image, LNX
 LNXNAME - Put this cartname in LNX header (31+1)
 LNXMANU - Put this manufacturer in LNX header (15+1)
 LNXROT - Set rotation flag
+
+Missing/TODO:
+
+EEPROMxyz - set bits to inform emulator about the presence of an SPI eeprom of type xyz in mode 8/16 bit.

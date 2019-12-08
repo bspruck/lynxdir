@@ -7,7 +7,7 @@
 
 #include "lynxrom.h"
 
-#define CARDHEADLEN 0x0408
+//#define CARDHEADLEN 2048
 #define HEADERLEN 10
 
 // unsigned char CardHead[CARDHEADLEN];   // 1032
@@ -39,7 +39,11 @@
 /// Offset 7: load file
 
 // at least 410 + two directory entries
-#define AUDIN_OFFSET  426
+#define AUDIN_OFFSET_HACK  (410+2*8)
+#define AUDIN_OFFSET_MICRO  (203+8)
+
+// geht nur fuer MICRO
+int AUDIN_OFFSET=0;
 
 struct LNX_STRUCT lnxhead;
 
@@ -92,22 +96,21 @@ void lynxrom::init(void)
   delimp = false;
   filler = false;
   fillrand = false;
-  useinternal = false;
   fillerchar = 0xFF;
   data = 0;
+  
+  loader=L_UNDEF;
 
   audin = false;
   bank2 = false;
-  blocksize = 1024;
+  blocksize = 0;
   blockcount = 256;
 
   nCartLen = 0;
   FILE_ANZ = 0;
-  oDirectoryPointer = 0x0380;
+  oDirectoryPointer = 0; // 0x0380;
   oCardTroyan = 0;//0x0400;
   titleadr = 0x2400; // default
-  hackhead = 0;
-  minihead = 0;
   writelyx = true;
   writelnx = true;
   lnxrot = 0;
@@ -138,7 +141,7 @@ void lynxrom::SetBank2(bool flag)
   init_rom(blocksize, blockcount, audin, flag);
 }
 
-bool lynxrom::init_rom(int bs, int bc, int ai, int b2)
+void lynxrom::init_rom(int bs, int bc, int ai, int b2)
 {
   if (data) delete []data;
   blocksize = bs;
@@ -159,6 +162,10 @@ bool lynxrom::init_rom(int bs, int bc, int ai, int b2)
   nCartLen = 0;
   FILE_ANZ = 0;
 
+  if(nMaxSize==0){
+      data=0;
+      return;
+  }
   data = new unsigned char[nMaxSize];
 
   memset(data, fillerchar, nMaxSize);
@@ -170,6 +177,10 @@ bool lynxrom::init_rom(int bs, int bc, int ai, int b2)
 
 bool lynxrom::AddFile(char* fname, bool bootpic, bool blockalign, bool mode, int offset, bool skip_bank, int addoff)
 {
+    if(FILE_ANZ>=256){
+        printf("Too many files!\n");
+        return false;
+    }
   // mode: true EPYX, false BLL
   if (fname && *fname) {
     char* c = fname;
@@ -207,11 +218,12 @@ bool lynxrom::AddCopy(int nr, bool mode, int offset)
 {
   static char copyof[] = "CopyOf";
   static char nocopy[] = "Empty";
-  if (nr < -1 || nr >= FILE_ANZ) {
+  if (nr < -2 || nr >= FILE_ANZ) {
     printf("Cannot reference to a future file (%d but i am %d)!\n", nr, FILE_ANZ);
     exit(100);
   }
 
+  if(nr==-2) nr=FILE_ANZ-1;
   if (nr == -1) {
     FILES[FILE_ANZ].fname = nocopy;
   } else {
@@ -240,7 +252,8 @@ bool lynxrom::AddCopy(int nr, bool mode, int offset)
 bool lynxrom::savelyx(char* fn)
 {
   if (!writelyx) return (true);
-
+  if (!data) return false;
+  
   FILE* fh;
 
   printf("== blocksize %d ncardlen %d maxsize %d audin %d bank2 %d\n", blocksize, nCartLen, nMaxSize, (int)audin, (int)bank2);
@@ -327,6 +340,7 @@ bool lynxrom::savelyx(char* fn)
 bool lynxrom::savelnx(char* fn)
 {
   if (!writelnx) return (true);
+  if (!data) return false;
 
   FILE* fh;
   struct LNX_STRUCT* ll;
@@ -372,6 +386,7 @@ bool lynxrom::savelnx(char* fn)
 
 void lynxrom::copy_bll_header(void)
 {
+  if(!data) return;
   // Header kopieren
   printf("Copy internal BLL newloader.\n");
   for (int i = 0; i < 0x380; i++) data[i] = CardHead[i]; // 0x380 von 0x0408
@@ -385,17 +400,18 @@ void lynxrom::copy_bll_header(void)
 
 void lynxrom::copy_micro_header(void)
 {
+  if(!data) return;
   // Header kopieren
   printf("Copy internal micro loader.\n");
-  switch (minihead) {
-    case 1: { // at $F000
+  switch (loader) {
+    case L_MINI_F000: { // at $F000
       printf("... @ $F000\n");
       for (int i = 0; i < 52; i++) data[i] = micro_loader_f000_stage1[i];
       for (int i = 0; i < 151; i++) data[i + 52] = micro_loader_f000_stage2[i];
       // now comes the first dir entry in EPYX format! @ 203
       //    data[52+128+12+11+0]=FILES[0]  block nr
     }; break;
-    case 2: { // at $FB68
+    case L_MINI_FB68: { // at $FB68
       printf("... @ $FB68\n");
       for (int i = 0; i < 52; i++) data[i] = micro_loader_fb68_stage1[i];
       for (int i = 0; i < 151; i++) data[i + 52] = micro_loader_fb68_stage2[i];
@@ -416,9 +432,9 @@ void lynxrom::copy_micro_header(void)
       printf("... Type not supported!\n");
   }
 
-  switch (minihead) {
-    case 1:
-    case 2:
+  switch (loader) {
+    case L_MINI_F000:
+    case L_MINI_FB68:
       switch (blocksize) {
         case 512:
           data[52 + 128 + 12 + 11 - 7] = 0xfe; // 128kb
@@ -605,7 +621,7 @@ bool lynxrom::add_files(void)
     printf("*********************************************\n");
   }
 
-  if (!minihead && FILES[0].loadadr == 0) {
+  if (!is_minihead() && FILES[0].loadadr == 0) {
     printf("Set Title Adress to %d ($%04X) as none was defined within title file header.\n", titleadr, titleadr);
     FILES[0].loadadr = titleadr; // fixed adress for title pic
   }
@@ -617,6 +633,7 @@ bool lynxrom::add_files(void)
 
 bool lynxrom::WriteFileToRom(struct FILE_PAR* file)
 {
+  if(!data) return false;
   if (nCartLen + file->inromsize > nMaxSize) {
     printf("\nROM Size exceeded!\n");
     return (false);
@@ -668,6 +685,7 @@ bool lynxrom::WriteDirEntry(struct FILE_PAR* file)
 {
   unsigned char* pDirectoryPointer;
   int bo, bn, fl;
+  if(!data) return false;
 
   if (file->copyof >= 0) {
     WriteDirCopyEntry(&FILES[file->copyof], file->dirpointer, file->entrymode);
@@ -715,12 +733,24 @@ bool lynxrom::WriteDirCopyEntry(struct FILE_PAR* file, int dirpointer, bool mode
 {
   unsigned char* pDirectoryPointer;
   int bo, bn, fl;
+  if(!data) return false;
 
   pDirectoryPointer = data + dirpointer;
 
   bo = file->inromloadoffset % blocksize;
   bn = file->inromloadoffset / blocksize;
   fl = file->indirfilesize;
+
+  if (bank2) { // bank2
+    if (bn & 0x100) bo |= 0x4000;
+    if (audin) { // and audin
+      if (bn & 0x200) bo |= 0x8000;
+    }
+  } else {
+    if (audin) { // only audin
+      if (bn & 0x100) bo |= 0x8000;
+    }
+  }
 
   pDirectoryPointer[0] = bn;
   pDirectoryPointer[3] = file->flag;
@@ -743,6 +773,7 @@ bool lynxrom::WriteDirCopyEntry(struct FILE_PAR* file, int dirpointer, bool mode
 bool lynxrom::WriteDirZeroEntry(int dirpointer)
 {
   unsigned char* pDirectoryPointer;
+  if(!data) return false;
   pDirectoryPointer = data + dirpointer;
   for (int i = 0; i < 8; i++) pDirectoryPointer[i] = 0;
   return true;
@@ -766,6 +797,13 @@ bool lynxrom::AnalyseFile(struct FILE_PAR* file)
     file->flag = ((unsigned char*)file->memory)[8 + 2];
     file->loadadr = ((unsigned short*)file->memory)[8 / 2];
     printf("RomRip ");
+  } else if(file->memory[0]==0xFF && file->memory[1]==0xFF){
+      printf("hmmm could be COM header %02X %02X %02X %02X\n", file->memory[2], file->memory[3], file->memory[4], file->memory[5]);
+      file->pointer += 6;
+      file->inromsize -= 6;
+      file->flag = 0;
+      file->loadadr = file->memory[3] * 256 + file->memory[2]; // Startadresse
+      // keine ahnugn  was der rest ist...
   } else {
     fflag = file->memory[0] | file->memory[1];
 //    if ((fflag == 0x88) ||  // Normales Programm
@@ -833,30 +871,61 @@ bool lynxrom::AnalyseFile(struct FILE_PAR* file)
 
 bool lynxrom::built(void)
 {
-  if (useinternal) copy_bll_header();
+  if(loader==L_UNDEF){
+    printf("No Loader selected. If you want to create a ROM without loader, please state #NOLOADER\n");
+    exit(1000);
+  }
+  if(!data){
+    printf("something is fishy, pleae check your mak file.\n");
+    exit(1000);
+  }
+  AUDIN_OFFSET=blocksize;
+  if (is_minihead()) AUDIN_OFFSET=AUDIN_OFFSET_MICRO;// tested und O.k.
+  if (is_hackhead()) AUDIN_OFFSET=AUDIN_OFFSET_HACK;// ob das o.k. ist?
+  if (loader==L_NOLOADER) memset(data, oDirectoryPointer, 0); // clean up with zeros (for encryption)
+  if (is_internal_bll()) copy_bll_header();
+
   process_files();
   add_files();
-  if (minihead) copy_micro_header();
+
+  if (is_minihead()) copy_micro_header();
   if (oCardTroyan > 0) {
     printf("Now write troyan entry\n");
     unsigned char troy[] = {0, 0, 2, 0, 0, 2, 0, 2};
     memcpy(data + oCardTroyan, troy, 8);
   }
   printf("==> Size: %d %x \n", nCartLen, nCartLen);
-  if (hackhead) {
-    printf("=== Set Hacked encrypted header\n");
-    switch (hackhead) {
+
+  if( loader==L_HACKAUTO){
+    switch(blocksize){
       case 512:
+        loader=L_HACK512;
+        break;
+      case 1024:
+        loader=L_HACK1024;
+        break;
+      case 2048:
+        loader=L_HACK2048;
+        break;
+      default:
+        printf("=== HACK AUTO: Block size not supported!!!\n");
+        break;
+    }
+  }
+  if (is_hackhead()) {
+    printf("=== Set Hacked encrypted header\n");
+    switch (loader) {
+      case L_HACK512:
         printf("=== type 512\n");
         memcpy(data, hackload_stage1, 154);
         memcpy(data + 154, hackload_stage2_512, 256);
         break;
-      case 1024:
+      case L_HACK1024:
         printf("=== type 1024\n");
         memcpy(data, hackload_stage1, 154);
         memcpy(data + 154, hackload_stage2_1024, 256);
         break;
-      case 2048:
+      case L_HACK2048:
         printf("=== Type 2048\n");
         memcpy(data, hackload_stage1, 154);
         memcpy(data + 154, hackload_stage2_2048, 256);
@@ -865,9 +934,34 @@ bool lynxrom::built(void)
         printf("=== Block size not supported!!!\n");
         break;
     }
-    if (audin) {
-      memcpy(data + nMaxSize / 2, data, AUDIN_OFFSET); // maybe 256 bytes is enough >> to test on hardware!
-      printf("Duplicate Header for AUDIN 1 (%d bytes)\n", AUDIN_OFFSET);
-    }
   }
+  if (audin) {
+    memcpy(data + nMaxSize / 2, data, AUDIN_OFFSET); // maybe 256 bytes is enough >> to test on hardware!
+    printf("Duplicate Header for AUDIN 1 (%d bytes)\n", AUDIN_OFFSET);
+  }
+}
+
+void lynxrom::SetLoader(int t)
+{
+    loader = t;
+}
+
+void lynxrom::SetHackHeader(int t,int n)
+{
+    loader = t;
+    SetBlockSize(n);
+    SetDirStart(410);
+}
+
+void lynxrom::SetInternalLoader(void)
+{
+    loader=L_BLL;
+    SetBlockSize(1024);
+    SetDirStart(0x380);
+}
+
+void lynxrom::SetMiniHeader(int t)
+{
+    loader = t;
+    SetDirStart(203);
 }

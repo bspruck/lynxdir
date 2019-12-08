@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define VER "1.7.0"
+#define VER "1.9.0"
 
 #define stricmp(a,b)  strcasecmp(a,b)
 #define strnicmp(a,b,c) strncasecmp(a,b,c)
@@ -17,6 +17,9 @@
 #include "lynxrom.h"
 
 // #define DEBUG 1
+
+#define MODE_BLL    false
+#define MODE_EPICS  true
 
 bool verbose;
 
@@ -40,7 +43,7 @@ bool ParseMAK(char* fname)
 {
   char buffer[1000];
   FILE* fh;
-  bool align = false, mode = false, title = true, skip_bank = false;
+  bool align = false, mode = MODE_BLL, title = true, skip_bank = false;
   int offset = 0;
   int fileadr = 0;
   int addfileoffset = 0;
@@ -102,24 +105,37 @@ bool ParseMAK(char* fname)
         ROM.SetDirStart(atoi(c + 9));
       } else if (strnicmp(c + 1, "DIROFFSET", 9) == 0) {
         offset = atoi(c + 10);
+      } else if (strnicmp(c + 1, "NOLOADER", 8) == 0) {
+        printf("-> Dont write any loader, fill with 0s\n");
+        ROM.SetLoader(L_NOLOADER);
       } else if (strnicmp(c + 1, "NEWMINI_F000", 12) == 0) {
         printf("-> Set new Minimal header (+ loader) @ $F000\n");
-        ROM.SetMiniHeader(1);
+        mode = MODE_EPICS;
+        ROM.SetMiniHeader(L_MINI_F000);
       } else if (strnicmp(c + 1, "NEWMINI_FB68", 12) == 0) {
         printf("-> Set new Minimal header (+ loader) @ $FB68\n");
-        ROM.SetMiniHeader(2);
-//      }else if(strnicmp(c+1,"NEWMINI_LEX",11)==0){// not yet working
-//        printf("-> Set new Minimal header (+ LEX loader) @ $F000\n");
-//        ROM.SetMiniHeader(3);
+        mode = MODE_EPICS;
+        ROM.SetMiniHeader(L_MINI_FB68);
+      } else if (strnicmp(c + 1, "HACKAUTO", 8) == 0) {
+        printf("-> Set HACK header (auto determine)\n");
+        mode = MODE_EPICS;
+        ROM.SetHackHeader(L_HACKAUTO, 0);
       } else if (strnicmp(c + 1, "HACK512", 7) == 0) {
         printf("-> Set HACK512 header\n");
-        ROM.SetHackHeader(512);
+        mode = MODE_EPICS;
+        ROM.SetHackHeader(L_HACK512, 512);
       } else if (strnicmp(c + 1, "HACK1024", 8) == 0) {
         printf("-> Set HACK1024 header\n");
-        ROM.SetHackHeader(1024);
+        mode = MODE_EPICS;
+        ROM.SetHackHeader(L_HACK1024, 1024);
       } else if (strnicmp(c + 1, "HACK2048", 8) == 0) {
         printf("-> Set HACK2048 header\n");
-        ROM.SetHackHeader(2048);
+        mode = MODE_EPICS;
+        ROM.SetHackHeader(L_HACK2048, 2048);
+      } else if (strnicmp(c + 1, "INTERNAL", 8) == 0) {
+        printf("-> Use internal bll newloader\n");
+        mode = MODE_BLL;
+        ROM.SetInternalLoader();
       } else if (strnicmp(c + 1, "AUDIN", 5) == 0) {
         printf("-> Set AUDIN cart\n");
         ROM.SetAudIn(true);
@@ -152,9 +168,6 @@ bool ParseMAK(char* fname)
       } else if (strnicmp(c + 1, "TROYAN", 6) == 0) {
         printf("-> Set troyan entry (FILE 16)\n");
         ROM.SetTroyan();
-      } else if (strnicmp(c + 1, "INTERNAL", 8) == 0) {
-        printf("-> Use internal bll newloader\n");
-        ROM.SetInternalLoader();
       } else if (strnicmp(c + 1, "TITLEADR", 8) == 0) {
         printf("-> Set adress for titlepic\n");
         ROM.SetTitleAdr(atoi(c + 9));
@@ -176,12 +189,14 @@ bool ParseMAK(char* fname)
         skip_bank = true;
       } else if (strnicmp(c + 1, "BLL", 3) == 0) {
         printf("-> Set Dir Mode Bll\n");
-        mode = false;
+        mode = MODE_BLL;
       } else if (strnicmp(c + 1, "EPYX", 4) == 0) {
         printf("-> Set Dir Mode Epyx\n");
-        mode = true;
+        mode = MODE_EPICS;
       } else if (strnicmp(c + 1, "COPY", 4) == 0) {
-        ROM.AddCopy(atoi(c + 5), mode, offset); // fileadr
+        int nr=-2;
+        if(sscanf(c+5,"%d",&nr)!=1) nr=-2;// reference last one 
+        ROM.AddCopy( nr, mode, offset); // fileadr
         align = false;
         title = false;
         offset = 0;
@@ -195,9 +210,14 @@ bool ParseMAK(char* fname)
         align = false;
         title = false;
         offset = 0;
+      }else{
+        printf("== ERROR ===\nUnknown line \"%s\"\n",c);
+        exit(1000);
       }
       addfileoffset = newfileoffset;
-    } else { // Filename
+    } else if(*c==0 || *c==';' || *c==10 || *c==13){
+      // Skip empty / comment line
+    } else {
       ROM.AddFile(c, title, align, mode, offset, skip_bank, addfileoffset); // fileadr
       align = false;
       title = false;
@@ -310,7 +330,7 @@ int main(int argc, char* argv[])
   // Handle Parameters
 
   ROM.init();
-  ROM.init_rom(1024, 256, false, false);
+  ROM.init_rom(0, 256, false, false);
 
   int argc_filename;
 
@@ -430,7 +450,7 @@ int main(int argc, char* argv[])
       // Shorter and without title picture ... karris cc65 loader to $f000 or $fb68
       ROM.SetBlockSize(512);
       ROM.SetDirStart(203);
-      ROM.SetMiniHeader(1);// better use f000 to be compatible with my bootloader
+      ROM.SetMiniHeader(2);// better use the higher one to allow very large binaries
       ROM.AddFile(argv[argc_filename], false, false, true, 0, 0);
 
       // Hacked epyxloader

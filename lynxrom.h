@@ -35,7 +35,7 @@ struct FILE_PAR {
 
   unsigned char* pointer;// written to rom
   unsigned char* data;// where in rom the entry starts (needed for dir), data afetr header
-  int inromloadoffset;
+  int   inromloadoffset;
 
   int   inromsize;// size stored in ROM
   int   loadadr;
@@ -50,9 +50,10 @@ struct FILE_PAR {
   bool  entrymode;// 1 EPYX, 0 BLL
   int   copyof;// >=0 copy of another file
   int   newdiroffset;//
-  int      addfileoffset;// additional file offset in front ... 10 bytes lynxer comp.
+  int   addfileoffset;// additional file offset in front ... 10 bytes lynxer comp.
 };
 
+enum {L_UNDEF=0, L_NOLOADER, L_MINI_FB68, L_MINI_F000, L_HACKAUTO, L_HACK512, L_HACK1024, L_HACK2048, L_BLL};
 
 class lynxrom {
 private:
@@ -61,15 +62,13 @@ private:
   int nMaxSize;
 
   bool verbose;
-  bool skipheader;
+  bool skipheader; // BLL header in .o files
   bool delimp;
   bool filler;
   bool fillrand;
   char fillerchar;
-  bool useinternal;
   int  titleadr;
-  int hackhead;
-  int minihead;
+  int loader; // type of loader to use, enum
 
   bool audin;
   bool bank2;
@@ -77,7 +76,7 @@ private:
   bool writelyx;
   bool writelnx;
 
-  int lnxrot;
+  int  lnxrot;
   char lnxmanu[65];
   char lnxname[65];
 
@@ -107,7 +106,7 @@ private:
 public:
 
   void init(void);
-  bool init_rom(int bs, int bc = 256, int ai = false, int b2 = false);
+  void init_rom(int bs, int bc = 256, int ai = false, int b2 = false);
   bool built(void);
   bool savelyx(char* fn);
   bool savelnx(char* fn);
@@ -121,11 +120,12 @@ public:
   void copy_micro_header(void);
 
   void SetBlockSize(int s);
-  inline void SetInternalLoader(void) { useinternal = true;};
+  void SetInternalLoader(void);
   inline void SetDirStart(int n) { oDirectoryPointer = n;};
   inline void SetTroyan(void) { oCardTroyan = 0x0400;};
-  inline void SetHackHeader(int n) {hackhead = n;};
-  inline void SetMiniHeader(int type) {minihead = type;};
+  void SetHackHeader(int type,int bs);
+  void SetLoader(int type);
+  void SetMiniHeader(int type);
   void SetAudIn(bool flag);
   void SetBank2(bool flag);
 
@@ -142,6 +142,10 @@ public:
   inline void set_lnxrot(int f) {lnxrot = f;};
   inline void set_lnxname(const char* c) {strncpy(lnxname, c, 64);};
   inline void set_lnxmanu(const char* c) {strncpy(lnxmanu, c, 64);};
+  
+  inline bool is_internal_bll(void){ return loader==L_BLL;};
+  inline bool is_hackhead(void){ return loader==L_HACK512 || loader==L_HACK1024 || loader==L_HACK2048 || loader==L_HACKAUTO;};
+  inline bool is_minihead(void){ return loader==L_MINI_F000 || loader==L_MINI_FB68;};
 };
 
 #endif
