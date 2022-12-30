@@ -176,7 +176,7 @@ bool ParseMAK(char* fname)
         ROM.SetTitleAdr(atoi(c + 9));
       } else if (strnicmp(c + 1, "PUTTITLE", 8) == 0) {
         printf("-> Use internal titlepic\n");
-        ROM.AddFile(0, true, align, mode, offset, skip_bank); // fileadr
+        ROM.AddFile(0, true, align, mode, offset, skip_bank, 0, fileadr);
         align = false;
         title = false;
         skip_bank = false;
@@ -235,7 +235,7 @@ bool ParseMAK(char* fname)
     } else if(*c==0 || *c==';' || *c==10 || *c==13){
       // Skip empty / comment line
     } else {
-      ROM.AddFile(c, title, align, mode, offset, skip_bank, addfileoffset); // fileadr
+      ROM.AddFile(c, title, align, mode, offset, skip_bank, addfileoffset, fileadr);
       align = false;
       title = false;
       skip_bank = false;

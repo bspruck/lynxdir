@@ -185,7 +185,7 @@ void lynxrom::init_rom(int bs, int bc, int ai, int b2)
   }
 }
 
-bool lynxrom::AddFile(char* fname, bool bootpic, bool blockalign, bool mode, int offset, bool skip_bank, int addoff)
+bool lynxrom::AddFile(char* fname, bool bootpic, bool blockalign, bool mode, int offset, bool skip_bank, int addoff,int loadadr)
 {
     if(FILE_ANZ==256){
         printf("WARNING: More than 256 files!\n");
@@ -216,7 +216,7 @@ bool lynxrom::AddFile(char* fname, bool bootpic, bool blockalign, bool mode, int
   FILES[FILE_ANZ].inromsize = FILES[FILE_ANZ].filesize;
   FILES[FILE_ANZ].copyof = -99;
   FILES[FILE_ANZ].dirpointer = 0;
-  FILES[FILE_ANZ].loadadr = 0;
+  FILES[FILE_ANZ].loadadr = loadadr;
   FILES[FILE_ANZ].addfileoffset = addoff;
 
   FILE_ANZ++;

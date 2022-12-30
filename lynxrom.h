@@ -119,7 +119,7 @@ public:
   bool built(void);
   bool savelyx(char* fn);
   bool savelnx(char* fn);
-  bool AddFile(char* fh, bool ins, bool align, bool mode, int offset, bool skipbank, int addoff = 0);
+  bool AddFile(char* fh, bool ins, bool align, bool mode, int offset, bool skipbank, int addoff = 0,int loadadr = 0);
   bool AddCopy(int nr, bool mode, int offset);
 // bool lynxrom::AddFile(char *fname,bool bootpic=false,bool blockalign=false)
 
