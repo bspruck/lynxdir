@@ -171,10 +171,10 @@ void lynxrom::init_rom(int bs, int bc, int ai, int b2)
   if (ai || b2) {
     if (ai && b2) {
       if(verbose) printf("AUDIN and BANK2: blockcount *4 \n");
-      blockcount = 1024;
+      blockcount *=4;
     } else {
       if(verbose) printf("AUDIN or BANK2: blockcount *2 \n");
-      blockcount = 512;
+      blockcount *=2;
     }
   }
   nMaxSize = blocksize * blockcount;
