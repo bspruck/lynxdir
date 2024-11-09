@@ -67,7 +67,7 @@ private:
   short blockcount;
   int nMaxSize;
 
-  bool verbose;
+  int verbose;
   bool skipheader; // BLL header in .o files
   bool delimp;
   bool filler;
@@ -138,8 +138,9 @@ public:
   void SetAudIn(bool flag);
   void SetBank2(bool flag);
   void SetContinueBank(bool flag);
+  void SetBlockLimit(int limit);
 
-  inline void set_verbose(bool f) {verbose = f;};
+  inline void set_verbose(int f) {verbose = f;};
   inline void set_skipheader(bool f) {skipheader = f;};
   inline void set_delimp(bool f) {delimp = f;};
   inline void set_filler(bool f) {filler = f;};

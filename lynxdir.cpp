@@ -21,7 +21,7 @@
 #define MODE_BLL    false
 #define MODE_EPICS  true
 
-bool verbose;
+int verbose;
 
 lynxrom ROM;
 char* ROMname;
@@ -37,6 +37,7 @@ bool ExtractName(char* fname)
   d = strrchr(ROMname, '/');
 
   if (c && c > d) *c = 0;
+  return true;
 }
 
 bool ParseMAK(char* fname)
@@ -101,81 +102,85 @@ bool ParseMAK(char* fname)
       /// COPY nr
       if (strnicmp(c + 1, "BLOCKSIZE", 9) == 0) {
         ROM.SetBlockSize(atoi(c + 10));
+      } else if  (strnicmp(c + 1, "BLOCKLIMIT", 10) == 0) {
+        ROM.SetBlockLimit(atoi(c + 11));
       } else if (strnicmp(c + 1, "DIRSTART", 8) == 0) {
         ROM.SetDirStart(atoi(c + 9));
       } else if (strnicmp(c + 1, "DIROFFSET", 9) == 0) {
         offset = atoi(c + 10);
       } else if (strnicmp(c + 1, "NOLOADER", 8) == 0) {
-        printf("-> Dont write any loader, fill with 0s\n");
+        if(verbose) printf("-> Dont write any loader, fill with 0s\n");
         ROM.SetLoader(L_NOLOADER);
       } else if (strnicmp(c + 1, "NEWMINI_F000", 12) == 0) {
-        printf("-> Set new Minimal header (+ loader) @ $F000\n");
+        if(verbose) printf("-> Set new Minimal header (+ loader) @ $F000\n");
         mode = MODE_EPICS;
         ROM.SetMiniHeader(L_MINI_F000);
       } else if (strnicmp(c + 1, "NEWMINI_FB68", 12) == 0) {
-        printf("-> Set new Minimal header (+ loader) @ $FB68\n");
+        if(verbose) printf("-> Set new Minimal header (+ loader) @ $FB68\n");
         mode = MODE_EPICS;
         ROM.SetMiniHeader(L_MINI_FB68);
       } else if (strnicmp(c + 1, "HACKAUTO", 8) == 0) {
-        printf("-> Set HACK header (auto determine)\n");
+        if(verbose) printf("-> Set HACK header (auto determine)\n");
         mode = MODE_EPICS;
         ROM.SetHackHeader(L_HACKAUTO, 0);
       } else if (strnicmp(c + 1, "HACK512", 7) == 0) {
-        printf("-> Set HACK512 header\n");
+        if(verbose) printf("-> Set HACK512 header\n");
         mode = MODE_EPICS;
         ROM.SetHackHeader(L_HACK512, 512);
       } else if (strnicmp(c + 1, "HACK1024", 8) == 0) {
-        printf("-> Set HACK1024 header\n");
+        if(verbose) printf("-> Set HACK1024 header\n");
         mode = MODE_EPICS;
         ROM.SetHackHeader(L_HACK1024, 1024);
       } else if (strnicmp(c + 1, "HACK2048", 8) == 0) {
-        printf("-> Set HACK2048 header\n");
+        if(verbose) printf("-> Set HACK2048 header\n");
         mode = MODE_EPICS;
         ROM.SetHackHeader(L_HACK2048, 2048);
       } else if (strnicmp(c + 1, "INTERNAL", 8) == 0) {
-        printf("-> Use internal bll newloader\n");
+        if(verbose) if(verbose) printf("-> Use internal bll newloader\n");
         mode = MODE_BLL;
         ROM.SetInternalLoader();
       } else if (strnicmp(c + 1, "AUDIN", 5) == 0) {
-        printf("-> Set AUDIN cart\n");
+        if(verbose) printf("-> Set AUDIN cart\n");
         ROM.SetAudIn(true);
       } else if (strnicmp(c + 1, "BANK2", 5) == 0) {
-        printf("-> Set BANK2 cart\n");
+        if(verbose) printf("-> Set BANK2 cart\n");
         ROM.SetBank2(true);
       } else if (strnicmp(c + 1, "CONT", 4) == 0) {
-        printf("-> Set Continous Bank\n");
+        if(verbose) printf("-> Set Continous Bank\n");
         ROM.SetContinueBank(true);
       } else if (strnicmp(c + 1, "NOLYX", 5) == 0) {
-        printf("-> Dont write LYX\n");
+        if(verbose) printf("-> Dont write LYX\n");
         ROM.set_write_lyx(false);
       } else if (strnicmp(c + 1, "NOLNX", 5) == 0) {
-        printf("-> Dont write LNX\n");
+        if(verbose) printf("-> Dont write LNX\n");
         ROM.set_write_lnx(false);
       } else if (strnicmp(c + 1, "LNXROT", 6) == 0) {
         int rotation;
         rotation = atoi(c + 7);
-        printf("-> Flag Rotate in LNX to ");
-        switch (rotation) {
-          case 0: printf("NORM\n"); break;
-          case 1: printf("LEFT\n"); break;
-          case 2: printf("RIGHT\n"); break;
-          default: printf("undefined\n"); break;
+        if(verbose) {
+          printf("-> Flag Rotate in LNX to ");
+          switch (rotation) {
+            case 0: printf("NORM\n"); break;
+            case 1: printf("LEFT\n"); break;
+            case 2: printf("RIGHT\n"); break;
+            default: printf("undefined\n"); break;
+          }
         }
         ROM.set_lnxrot(rotation);
       } else if (strnicmp(c + 1, "LNXNAME", 7) == 0) {
-        printf("-> Set Name of Game in LNX %s\n", c + 9);
+        if(verbose) printf("-> Set Name of Game in LNX %s\n", c + 9);
         ROM.set_lnxname(c + 9);
       } else if (strnicmp(c + 1, "LNXMANU", 7) == 0) {
-        printf("-> Set Manufacturer in LNX %s\n", c + 9);
+        if(verbose) printf("-> Set Manufacturer in LNX %s\n", c + 9);
         ROM.set_lnxmanu(c + 9);
       } else if (strnicmp(c + 1, "TROYAN", 6) == 0) {
-        printf("-> Set troyan entry (FILE 16)\n");
+        if(verbose) printf("-> Set troyan entry (FILE 16)\n");
         ROM.SetTroyan();
       } else if (strnicmp(c + 1, "TITLEADR", 8) == 0) {
-        printf("-> Set adress for titlepic\n");
+        if(verbose) printf("-> Set adress for titlepic\n");
         ROM.SetTitleAdr(atoi(c + 9));
       } else if (strnicmp(c + 1, "PUTTITLE", 8) == 0) {
-        printf("-> Use internal titlepic\n");
+        if(verbose) printf("-> Use internal titlepic\n");
         ROM.AddFile(0, true, align, mode, offset, skip_bank, 0, fileadr);
         align = false;
         title = false;
@@ -183,18 +188,18 @@ bool ParseMAK(char* fname)
         offset = 0;
       } else if (strnicmp(c + 1, "FILEADR", 7) == 0) {
         fileadr = atoi(c + 8);
-        printf("(not fully supported option!!!) -> Set Default Load Adr for data files to %d\n", fileadr);
+        if(verbose) printf("(not fully supported option!!!) -> Set Default Load Adr for data files to %d\n", fileadr);
       } else if (strnicmp(c + 1, "ALIGN", 5) == 0) {
-        printf("-> Align next\n");
+        if(verbose) printf("-> Align next\n");
         align = true;
       } else if (strnicmp(c + 1, "SKIP_BANK", 9) == 0) {
-        printf("-> Skip Bank next\n");
+        if(verbose) printf("-> Skip Bank next\n");
         skip_bank = true;
       } else if (strnicmp(c + 1, "BLL", 3) == 0) {
-        printf("-> Set Dir Mode Bll\n");
+        if(verbose) printf("-> Set Dir Mode Bll\n");
         mode = MODE_BLL;
       } else if (strnicmp(c + 1, "EPYX", 4) == 0) {
-        printf("-> Set Dir Mode Epyx\n");
+        if(verbose) printf("-> Set Dir Mode Epyx\n");
         mode = MODE_EPICS;
       } else if (strnicmp(c + 1, "COPY", 4) == 0) {
         int nr=-2;
@@ -285,7 +290,7 @@ bool add_lnx_header(const char* fn2, int len)
   if (bn) strcpy(bn, ".lnx");
   else strcat(bn, ".lnx");
 
-  printf("Writing to %s\n", fn);
+  if(verbose) printf("Writing to %s\n", fn);
   fh = fopen(fn, "wb+");
   if (fh == 0) return (false);
 
@@ -295,7 +300,7 @@ bool add_lnx_header(const char* fn2, int len)
   strcpy((char*)ll->magic, "LYNX");
 
   ll->page_size_bank0 = len >> 8;
-  printf("using Blocksize of %d bytes\n", ll->page_size_bank0);
+  if(verbose) printf("using Blocksize of %d bytes\n", ll->page_size_bank0);
   // ll->page_size_bank1=0;
 
   ll->version = 1;
@@ -351,7 +356,7 @@ int main(int argc, char* argv[])
 
   int argc_filename;
 
-  verbose = false;
+  verbose = 0;
 
   argc_filename = 1;
   for (int ii = 1; ii < argc; ii++) {
@@ -364,48 +369,48 @@ int main(int argc, char* argv[])
           exit(-1);
         }
         case 'v': {
-          verbose = true;
-          ROM.set_verbose(true);
+          verbose++;
+          ROM.set_verbose(verbose);
           break;
         }
         case 'f': {
           ROM.set_filler(true);
-          printf("Fill LYX!\n");
+          if(verbose) printf("Fill LYX!\n");
           break;
         }
         case '0': {
           ROM.set_filler_zero();
-          printf("Fill with 0x00!\n");
+          if(verbose) printf("Fill with 0x00!\n");
           break;
         }
         case '1': {
           ROM.set_filler_one();
-          printf("Fill with 0xFF!\n");
+          if(verbose) printf("Fill with 0xFF!\n");
           break;
         }
         case 'r': {
           ROM.set_fillrand(true);
-          printf("Fill with random!\n");
+          if(verbose) printf("Fill with random!\n");
           break;
         }
         case 's': {
           ROM.set_skipheader(false);
-          printf("Dont Skip Header!\n");
+          if(verbose) printf("Dont Skip Header!\n");
           break;
         }
         case 'i': {
           ROM.set_delimp(true);
-          printf("Remove IMP!\n");
+          if(verbose) printf("Remove IMP!\n");
           break;
         }
         case 'x': {
           ROM.set_write_lnx(false);
-          printf("Dont write LNX!\n");
+          if(verbose) printf("Dont write LNX!\n");
           break;
         }
         case 'y': {
           ROM.set_write_lyx(false);
-          printf("Dont write LYX!\n");
+          if(verbose) printf("Dont write LYX!\n");
           break;
         }
         default: {
