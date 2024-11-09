@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define VER "1.9.3"
+#define VER "1.9.4"
 
 #define stricmp(a,b)  strcasecmp(a,b)
 #define strnicmp(a,b,c) strncasecmp(a,b,c)
@@ -253,6 +253,17 @@ bool ParseMAK(char* fname)
 }
 
 char usage[] = {
+  "LynxDir Generator Version " VER "\n"
+  " a replacement for the lynxer \n"
+  "(c) 2010-2017 Bjoern Spruck\n"
+  " based on the lynxer by Bastian Schick\n"
+  " It can create ROMs with \n"
+  " * BLL type 1024 bytes/block, using Troyan Horse\n"
+  " * EPXY Loader 512/1024/2048 w/o checksum\n"
+  " * EPXY Loader with BLL type file system\n"
+  " * CC65/Karri MiniLoader @ $F000 and $FB68\n"
+  " * or without loader for later encryption\n"
+  " ... and a few other things\n"
   "\nUsage :\n"
   "lynxdir [-hvsif01r] batchfile.mak\n"
   "lynxdir mainexe.o\n"
@@ -330,19 +341,7 @@ bool add_lnx_header(const char* fn2, int len)
 *************************************************************/
 int main(int argc, char* argv[])
 {
-  printf("----------------------------------------\n"
-         "LynxDir Generator Version " VER "\n"
-         " a replacement for the lynxer \n"
-         "(c) 2010-2017 Bjoern Spruck\n"
-         " based on the lynxer by Bastian Schick\n"
-         " It can create ROMs with \n"
-         " * BLL type 1024 bytes/block, using Troyan Horse\n"
-         " * EPXY Loader 512/1024/2048 w/o checksum\n"
-         " * EPXY Loader with BLL type file system\n"
-         " * CC65/Karri MiniLoader @ $F000 and $FB68\n"
-         " * or without loader for later encryption\n"
-         " ... and a few other things\n"
-         "----------------------------------------\n");
+  printf("LynxDir Generator Version " VER "\n");
 
   if (argc == 1) {
     printf("%s:\n%s", argv[0], usage);
@@ -488,16 +487,16 @@ int main(int argc, char* argv[])
       exit(100);
     } else {
       // Seems to be MAK
-      printf("\nRunning in script mode. (%s)\n", argv[argc_filename]);
+      if (verbose) printf("\nRunning in script mode. (%s)\n", argv[argc_filename]);
       if (!ParseMAK(argv[argc_filename])) {
         printf("\nProblems loading file. %s\n", argv[argc_filename]);
         exit(1);
       }
-      printf("\nMak file parsed. (%s)\n", argv[argc_filename]);
+      if (verbose) printf("\nMak file parsed. (%s)\n", argv[argc_filename]);
     }
   }
 
-  printf("\nBuilding ROM...\n");
+  if (verbose) printf("\nBuilding ROM...\n");
   ROM.built();
 
   char* n;
