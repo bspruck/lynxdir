@@ -179,7 +179,7 @@ void lynxrom::init_rom(int bs, int bc, int ai, int b2)
   }
   nMaxSize = blocksize * blockcount;
   // if(verbose)
-  printf("Init ROM Block Size %d Block Limit %d Overall Size %d \n", blocksize, blockcount, nMaxSize);
+  if(verbose) printf("Init ROM Block Size %d Block Limit %d Overall Size %d \n", blocksize, blockcount, nMaxSize);
   nCartLen = 0;
   FILE_ANZ = 0;
 
@@ -276,7 +276,7 @@ bool lynxrom::savelyx(char* fn)
   FILE* fh;
 
   //if(verbose)
-  printf("== Blocksize %d Blocklimit %d CardLen %d MaxSize %d Audin %d Bank2 %d\n", blocksize, blockcount,  nCartLen, nMaxSize, (int)audin, (int)bank2);
+  printf("Write LYX image with Blocksize %d Blocklimit %d CardLen %d MaxSize %d Audin %d Bank2 %d\n", blocksize, blockcount,  nCartLen, nMaxSize, (int)audin, (int)bank2);
   char* c;
   c = new char[strlen(fn) + 20];
 
@@ -397,7 +397,7 @@ bool lynxrom::savelnx(char* fn)
   nCartLen = nMaxSize;
 
   //if(verbose) 
-  printf("== Blocksize %d Blocklimit %d CardLen %d MaxSize %d Audin %d Bank2 %d\n", blocksize, blockcount,  nCartLen, nMaxSize, (int)audin, (int)bank2);
+  printf("Write LNX with Blocksize %d Blocklimit %d CardLen %d MaxSize %d Audin %d Bank2 %d\n", blocksize, blockcount,  nCartLen, nMaxSize, (int)audin, (int)bank2);
   if (fwrite(data, 1, nCartLen, fh) != nCartLen) printf("Error: Couldn't write bank %s !\n", fn);
 
   fclose(fh);
@@ -486,7 +486,7 @@ bool lynxrom::process_files(void)
     ProcessFile(FILES[i]);
   }
 
-  printf("\n");
+  if(verbose) printf("\n");
   if (oCardTroyan > 0) {
     if (oDirectoryPointer < oCardTroyan + 8) { // Troyan Horse!!!
       if(verbose) printf("Before Troyan %d = %xh -> adjust Offset\n", oDirectoryPointer, oDirectoryPointer);
@@ -503,7 +503,7 @@ bool lynxrom::process_files(void)
   nBlockNo = nCartLen / blocksize;
 
   oDirectoryPointer = ndirold;
-  printf("--- Directory processed ---\n\n");
+  if(verbose) printf("--- Directory processed ---\n\n");
 
 
   if (verbose) {
@@ -518,20 +518,20 @@ bool lynxrom::process_files(void)
 
 void lynxrom::ProcessFile(struct FILE_PAR& file)
 {
-  printf("nDirOffset: %d = %xh\n", oDirectoryPointer, oDirectoryPointer);
+  if(verbose) printf("nDirOffset: %d = %xh\n", oDirectoryPointer, oDirectoryPointer);
   // Jetzt die Datei
   if (oDirectoryPointer == oCardTroyan) {
     oDirectoryPointer += 8;// Troyan Horse!!!
-    printf("Troyan Horse here!\n------- next entry ---\n");
+    if(verbose) printf("Troyan Horse here!\n------- next entry ---\n");
   }
 
   if (file.newdiroffset > 0) {
     if (file.newdiroffset < oDirectoryPointer) {
       printf("Tried to set negative offset... new:%d < old:%d\n", file.newdiroffset, oDirectoryPointer);
     } else {
-      printf("Set new Directory position offset... (old:%d)\n", oDirectoryPointer);
+      if(verbose) printf("Set new Directory position offset... (old:%d)\n", oDirectoryPointer);
       oDirectoryPointer = file.newdiroffset;
-      printf("nDirOffset: %d = %xh\n", oDirectoryPointer, oDirectoryPointer);
+      if(verbose) printf("nDirOffset: %d = %xh\n", oDirectoryPointer, oDirectoryPointer);
     }
   }
 
@@ -540,15 +540,15 @@ void lynxrom::ProcessFile(struct FILE_PAR& file)
       printf("\n empty filename -> bug!\n");
       exit(100);
     }
-    printf("Title Pic (built-in)\n");
+    if(verbose) printf("Title Pic (built-in)\n");
   } else {
-    printf("%s\n", file.fname);
+    if(verbose) printf("%s\n", file.fname);
   }
 
   if (file.copyof >= 0) {
-    printf("COPY of entry %d\n", file.copyof);
+    if(verbose) printf("COPY of entry %d\n", file.copyof);
   } else if (file.copyof == -1) {
-    printf("Empty entry\n");
+    if(verbose) printf("Empty entry\n");
   }
   file.dirpointer = oDirectoryPointer;
   oDirectoryPointer += 8;
@@ -559,7 +559,7 @@ bool lynxrom::add_files(void)
   int tt = 0;
   struct FILE_PAR* file;
 
-  printf("%d Files\n", FILE_ANZ);
+  if(verbose) printf("%d Files\n", FILE_ANZ);
   for (int i = 0; i < FILE_ANZ; i++) {
     short nBlockNo;
     short nBlockOffset;
@@ -577,7 +577,7 @@ bool lynxrom::add_files(void)
       nCartLen &= ~(blocksize - 1);
       nBlockOffset = nCartLen % blocksize;
       nBlockNo = nCartLen / blocksize;
-      printf("#ALIGN:\n");
+      if(verbose) printf("#ALIGN:\n");
       if (verbose) {
         printf("Next one will be at: Block %x, Offset %x\n", nBlockNo, nBlockOffset);
       }
@@ -593,16 +593,16 @@ bool lynxrom::add_files(void)
       file->filesize = DUMMY_INSERT_SIZE;
       file->loadadr = 0x2400; // fixed adress for title pic
 
-      printf("%d: Title Pic (built-in)\n", tt++);
+      if(verbose) printf("%d: Title Pic (built-in)\n", tt++);
     } else {
-      printf("%d: %s\n", tt++, file->fname);
+      if(verbose) printf("%d: %s\n", tt++, file->fname);
     }
 
     if (file->copyof >= 0) {
-      printf("COPY of entry %d\n", file->copyof);
+      if(verbose) printf("COPY of entry %d\n", file->copyof);
       continue;
     } else if (file->copyof == -1) {
-      printf("Empty entry\n");
+      if(verbose) printf("Empty entry\n");
       continue;
     }
     file->inromloadoffset = nCartLen;
@@ -617,12 +617,12 @@ bool lynxrom::add_files(void)
       if (verbose) printf(" size: %d (%x) bytes", file->inromsize, file->inromsize);
       nCartLen += file->inromsize;
 
-      printf("\n");
+      if(verbose) printf("\n");
       if (verbose) {
         nBlockOffset = nCartLen % blocksize;
         nBlockNo = nCartLen / blocksize;
-        printf("File handled:\n");
-        printf("Next one will be at:  %x, Offset %x\n", nBlockNo, nBlockOffset);
+        if(verbose) printf("File handled:\n");
+        if(verbose) printf("Next one will be at:  %x, Offset %x\n", nBlockNo, nBlockOffset);
       }
 
     } else {
@@ -825,7 +825,7 @@ bool lynxrom::AnalyseFile(struct FILE_PAR* file)
     file->data += 16;
     file->flag = ((unsigned char*)file->memory)[8 + 2];
     file->loadadr = ((unsigned short*)file->memory)[8 / 2];
-    printf("RomRip ");
+    if(verbose) printf("RomRip ");
   } else if(file->memory[0]==0xFF && file->memory[1]==0xFF){
       printf("hmmm could be COM header %02X %02X %02X %02X\n", file->memory[2], file->memory[3], file->memory[4], file->memory[5]);
       file->pointer += 6;
@@ -859,16 +859,16 @@ bool lynxrom::AnalyseFile(struct FILE_PAR* file)
       if (fflag == 0x89) { // Gepacktes Prg.
         file->indirfilesize = file->memory[4] * 256 + file->memory[5];
         // TP packed program ... length in dir is unpacked(!) length not packed length
-        printf("TP Exec ");
+        if(verbose) printf("TP Exec ");
       } else {
-        printf("Exec ");
+        if(verbose) printf("Exec ");
       }
     }
 
     // Check if we have IMP! File
     if (file->data[0] == 'I' && file->data[1] == 'M' && file->data[2] == 'P' && file->data[3] == '!') {
       file->flag = 'I';// Data imploded
-      printf("Imploded ");
+      if(verbose) printf("Imploded ");
       if (delimp) { // ... and remove Magic
         file->data[0] = random() & 0xFF;
         file->data[1] = random() & 0xFF;
@@ -879,9 +879,9 @@ bool lynxrom::AnalyseFile(struct FILE_PAR* file)
     // Check if we have PCrunch File
     if (file->data[2] == 'p' && file->data[3] == 'u') {
       file->flag = 'P';// Data pCrunched
-      printf("PUCrunch ");
+      if(verbose) printf("PUCrunch ");
       file->loadadr = file->data[7] + file->data[8] * 256;
-      printf("load to %04X ", file->loadadr);
+      if(verbose) printf("load to %04X ", file->loadadr);
       file->data[14] = file->data[12];
       file->data[13] = file->data[11];
       file->data[12] = file->data[10];
@@ -919,11 +919,11 @@ bool lynxrom::built(void)
 
   if (is_minihead()) copy_micro_header();
   if (oCardTroyan > 0) {
-    printf("Now write troyan entry\n");
+    if(verbose) printf("Now write troyan entry\n");
     unsigned char troy[] = {0, 0, 2, 0, 0, 2, 0, 2};
     memcpy(data + oCardTroyan, troy, 8);
   }
-  printf("==> Size: %d %x \n", nCartLen, nCartLen);
+  if(verbose) printf("==> Size: %d %x \n", nCartLen, nCartLen);
 
   if( loader==L_HACKAUTO){
     switch(blocksize){
@@ -942,20 +942,20 @@ bool lynxrom::built(void)
     }
   }
   if (is_hackhead()) {
-    printf("=== Set Hacked encrypted header\n");
+    if(verbose) printf("=== Set Hacked encrypted header\n");
     switch (loader) {
       case L_HACK512:
-        printf("=== type 512\n");
+        if(verbose) printf("=== type 512\n");
         memcpy(data, hackload_stage1, 154);
         memcpy(data + 154, hackload_stage2_512, 256);
         break;
       case L_HACK1024:
-        printf("=== type 1024\n");
+        if(verbose) printf("=== type 1024\n");
         memcpy(data, hackload_stage1, 154);
         memcpy(data + 154, hackload_stage2_1024, 256);
         break;
       case L_HACK2048:
-        printf("=== Type 2048\n");
+        if(verbose) printf("=== Type 2048\n");
         memcpy(data, hackload_stage1, 154);
         memcpy(data + 154, hackload_stage2_2048, 256);
         break;
@@ -966,7 +966,7 @@ bool lynxrom::built(void)
   }
   if (audin) {
     memcpy(data + nMaxSize / 2, data, AUDIN_OFFSET); // maybe 256 bytes is enough >> to test on hardware!
-    printf("Duplicate Header for AUDIN 1 (%d bytes)\n", AUDIN_OFFSET);
+    if(verbose) printf("Duplicate Header for AUDIN 1 (%d bytes)\n", AUDIN_OFFSET);
   }
   return(true);
 }
