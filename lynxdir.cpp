@@ -44,22 +44,10 @@ bool ParseMAK(char* fname)
 {
   char buffer[1000];
   FILE* fh;
-  bool align = false, mode = MODE_BLL, title = true, skip_bank = false, cont_bank=false;
-  int offset = 0;
-  int fileadr = 0;
-  int addfileoffset = 0;
-
-  {
-    char* c, nn[65];
-    c = strrchr(fname, '/');
-    if (c == 0) c = fname;
-    strncpy(nn, c, 64);
-    nn[64] = 0;
-    c = strrchr(nn, '.');
-    if (c) *c = 0;
-    ROM.set_lnxname(nn);
-  }
-
+  static bool align = false, mode = MODE_BLL, title = true, skip_bank = false, cont_bank=false;
+  static int offset = 0;
+  static int fileadr = 0;
+  static int addfileoffset = 0;
 
   fh = fopen(fname, "rt");
   if (fh == 0) return (false);
@@ -87,7 +75,7 @@ bool ParseMAK(char* fname)
     while (*c == ' ' || *c == '\t') c++;
 
     if (*c == '#') { // Options
-      int newfileoffset;
+      static int newfileoffset;
       newfileoffset = 0;
       /// ROM file option like:
       /// BLOCKSIZE nr
@@ -232,6 +220,12 @@ bool ParseMAK(char* fname)
         ROM.set_eeprom_type(EEPROM_93C76);
       } else if (strnicmp(c + 1, "EE_93C86", 8) == 0) {
         ROM.set_eeprom_type(EEPROM_93C86);          
+      } else if (strnicmp(c + 1, "INCLUDE", 7) == 0) {
+        if (!ParseMAK(c+9)) {
+            printf("\nProblems loading file. %s\n", c+9);
+            exit(1);
+        }
+        printf("processed %s\n", c+9);
       }else{
         printf("== ERROR ===\nUnknown line \"%s\"\n",c);
         exit(1000);
@@ -308,7 +302,7 @@ bool add_lnx_header(const char* fn2, int len)
   ll = new struct LNX_STRUCT;
 
   memset(ll, 0, sizeof(struct LNX_STRUCT));
-  strcpy((char*)ll->magic, "LYNX");
+  strncpy((char*)ll->magic, "LYNX",4);
 
   ll->page_size_bank0 = len >> 8;
   if(verbose) printf("using Blocksize of %d bytes\n", ll->page_size_bank0);
@@ -488,6 +482,16 @@ int main(int argc, char* argv[])
     } else {
       // Seems to be MAK
       if (verbose) printf("\nRunning in script mode. (%s)\n", argv[argc_filename]);
+      {
+        char* c, nn[65];
+        c = strrchr(argv[argc_filename], '/');
+        if (c == 0) c = argv[argc_filename];
+        strncpy(nn, c, 64);
+        nn[64] = 0;
+        c = strrchr(nn, '.');
+        if (c) *c = 0;
+        ROM.set_lnxname(nn);
+      }
       if (!ParseMAK(argv[argc_filename])) {
         printf("\nProblems loading file. %s\n", argv[argc_filename]);
         exit(1);

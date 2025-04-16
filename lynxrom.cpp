@@ -372,7 +372,7 @@ bool lynxrom::savelnx(char* fn)
   ll = new struct LNX_STRUCT;
 
   memset(ll, 0, sizeof(struct LNX_STRUCT));
-  strcpy((char*)ll->magic, "LYNX");
+  strncpy((char*)ll->magic, "LYNX",4);
   ll->page_size_bank0 = blocksize;
   if (bank2) {
     ll->page_size_bank1 = blocksize;
@@ -968,7 +968,7 @@ bool lynxrom::built(void)
     memcpy(data + nMaxSize / 2, data, AUDIN_OFFSET); // maybe 256 bytes is enough >> to test on hardware!
     if(verbose) printf("Duplicate Header for AUDIN 1 (%d bytes)\n", AUDIN_OFFSET);
   }
-  return(true);
+  return true;
 }
 
 void lynxrom::SetLoader(int t)
