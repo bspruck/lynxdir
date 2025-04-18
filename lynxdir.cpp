@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define VER "1.9.4"
+#define VER "2.0.0"
 
 #define stricmp(a,b)  strcasecmp(a,b)
 #define strnicmp(a,b,c) strncasecmp(a,b,c)

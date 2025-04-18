@@ -64,6 +64,7 @@ TROYAN - Put the Toryan horse into place, only needed for BLL compatible layouts
 
 BLOCKSIZE and DIRSTART are now set by commands above as well as the mode for the first dir entry.
 BLOCKSIZE - Blocksize for this ROM, one of the most important comnmands. Possible values are: 512 (default), 1024, 2048
+BLOCKLIMIT - limits the filling of unused blocks to a given number in case the ROM is smaller. default 256 (does nothing)
 DIRSTART - where to start the directory, 410 for EPYX loader, 896 for BLL, 203 for NewMini
 AUDIN - doubles the number of banks by using AUDIN line for switching (the user code is responsible for supporting this)
 BANK2 - doubles the number of banks by using second read strobe (the user code is responsible for supporting this)
@@ -85,6 +86,8 @@ NONE - write an empty directory entry
 EMPTY - same as NONE
 SKIP - skip n entries in directory (= write n empty entries)
 SKIP_BANK - skips to the next bank (if available).
+
+INCLUDE - includes another mak file with given file name (for complex projects)
 
 And a few handy things.
 
